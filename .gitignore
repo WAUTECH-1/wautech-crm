@@ -1,0 +1,24 @@
+# Java / Maven
+**/target/
+*.class
+*.log
+# IDEs
+.idea/
+*.iml
+.vscode/
+.classpath
+.project
+.settings/
+# Local environment and secrets
+.env
+.env.*
+*.local
+# Frontend
+**/node_modules/
+**/dist/
+**/build/
+**/coverage/
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
