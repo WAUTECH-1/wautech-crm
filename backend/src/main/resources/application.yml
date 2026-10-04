@@ -1,0 +1,21 @@
+spring:
+  config:
+    import: optional:file:../.env[.properties],optional:file:./.env[.properties]
+  application:
+    name: wautech-crm
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:${DB_PORT:5432}/${DB_NAME:wautech_crm}}
+    username: ${DB_USERNAME:${DB_USER:wautech}}
+    password: ${DB_PASSWORD:}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+server:
+  port: ${SERVER_PORT:8080}
+  error:
+    include-message: never
+    include-stacktrace: never
+    include-binding-errors: never
