@@ -1,5 +1,6 @@
 package com.wautech.crm.platform.error;
 
+import com.wautech.crm.activity.service.ActivityNotFoundException;
 import com.wautech.crm.company.service.CompanyNotFoundException;
 import com.wautech.crm.contact.service.ContactNotFoundException;
 import com.wautech.crm.lead.entity.IllegalLeadStatusTransitionException;
@@ -16,6 +17,11 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 
 @RestControllerAdvice
 public class ApiExceptionHandler {
+    @ExceptionHandler(ActivityNotFoundException.class)
+    ProblemDetail handleActivityNotFound(ActivityNotFoundException exception) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, exception.getMessage());
+    }
+
     @ExceptionHandler(CompanyNotFoundException.class)
     ProblemDetail handleCompanyNotFound(CompanyNotFoundException exception) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, exception.getMessage());
