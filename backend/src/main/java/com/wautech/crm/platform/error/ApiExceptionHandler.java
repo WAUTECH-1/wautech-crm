@@ -2,6 +2,8 @@ package com.wautech.crm.platform.error;
 
 import com.wautech.crm.company.service.CompanyNotFoundException;
 import com.wautech.crm.contact.service.ContactNotFoundException;
+import com.wautech.crm.lead.entity.IllegalLeadStatusTransitionException;
+import com.wautech.crm.lead.service.LeadNotFoundException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -19,6 +21,16 @@ public class ApiExceptionHandler {
     @ExceptionHandler(ContactNotFoundException.class)
     ProblemDetail handleContactNotFound(ContactNotFoundException exception) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, exception.getMessage());
+    }
+
+    @ExceptionHandler(LeadNotFoundException.class)
+    ProblemDetail handleLeadNotFound(LeadNotFoundException exception) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, exception.getMessage());
+    }
+
+    @ExceptionHandler(IllegalLeadStatusTransitionException.class)
+    ProblemDetail handleIllegalLeadStatusTransition(IllegalLeadStatusTransitionException exception) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, exception.getMessage());
     }
 
     @ExceptionHandler({MethodArgumentNotValidException.class, MethodArgumentTypeMismatchException.class})

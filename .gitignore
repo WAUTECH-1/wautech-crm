@@ -2,6 +2,8 @@
 **/target/
 *.class
 *.log
+# Local Maven Wrapper distribution and dependency cache
+.maven-cache/
 # IDEs
 .idea/
 *.iml
