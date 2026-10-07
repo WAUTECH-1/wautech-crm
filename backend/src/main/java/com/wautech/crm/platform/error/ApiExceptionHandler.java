@@ -8,6 +8,8 @@ import com.wautech.crm.lead.service.LeadNotFoundException;
 import com.wautech.crm.opportunity.entity.IllegalOpportunityStageTransitionException;
 import com.wautech.crm.opportunity.service.OpportunityContactCompanyMismatchException;
 import com.wautech.crm.opportunity.service.OpportunityNotFoundException;
+import com.wautech.crm.task.entity.IllegalTaskStatusTransitionException;
+import com.wautech.crm.task.service.TaskNotFoundException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -42,8 +44,14 @@ public class ApiExceptionHandler {
         return ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, exception.getMessage());
     }
 
-    @ExceptionHandler({OpportunityContactCompanyMismatchException.class, IllegalOpportunityStageTransitionException.class})
-    ProblemDetail handleInvalidOpportunityOperation(RuntimeException exception) {
+    @ExceptionHandler(TaskNotFoundException.class)
+    ProblemDetail handleTaskNotFound(TaskNotFoundException exception) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, exception.getMessage());
+    }
+
+    @ExceptionHandler({OpportunityContactCompanyMismatchException.class, IllegalOpportunityStageTransitionException.class,
+            IllegalTaskStatusTransitionException.class})
+    ProblemDetail handleInvalidOperation(RuntimeException exception) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, exception.getMessage());
     }
 
