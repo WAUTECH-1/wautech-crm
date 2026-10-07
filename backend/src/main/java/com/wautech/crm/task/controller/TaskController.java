@@ -48,9 +48,15 @@ public class TaskController {
                                          @RequestParam(required = false) TaskPriority priority,
                                          @RequestParam(required = false) Instant dueBefore,
                                          @RequestParam(required = false) Instant dueAfter,
-                                         @RequestParam(required = false) Boolean overdue) {
-        return taskService.listActive(companyId, contactId, leadId, opportunityId, status, priority,
-                dueBefore, dueAfter, overdue);
+                                         @RequestParam(required = false) Boolean overdue,
+                                         @RequestParam(required = false) String search,
+                                         @RequestParam(required = false) String sortBy,
+                                         @RequestParam(required = false) String sortDirection) {
+        return search == null && sortBy == null && sortDirection == null
+                ? taskService.listActive(companyId, contactId, leadId, opportunityId, status, priority,
+                dueBefore, dueAfter, overdue)
+                : taskService.listActive(companyId, contactId, leadId, opportunityId, status, priority,
+                dueBefore, dueAfter, overdue, search, sortBy, sortDirection);
     }
 
     @GetMapping("/{id}")

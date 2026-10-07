@@ -40,8 +40,13 @@ public class OpportunityController {
     @GetMapping
     public List<OpportunityResponse> listActive(@RequestParam(required = false) UUID companyId,
                                                 @RequestParam(required = false) UUID contactId,
-                                                @RequestParam(required = false) OpportunityStage stage) {
-        return opportunityService.listActive(companyId, contactId, stage);
+                                                @RequestParam(required = false) OpportunityStage stage,
+                                                @RequestParam(required = false) String search,
+                                                @RequestParam(required = false) String sortBy,
+                                                @RequestParam(required = false) String sortDirection) {
+        return search == null && sortBy == null && sortDirection == null
+                ? opportunityService.listActive(companyId, contactId, stage)
+                : opportunityService.listActive(companyId, contactId, stage, search, sortBy, sortDirection);
     }
 
     @GetMapping("/{id}")

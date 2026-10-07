@@ -17,11 +17,16 @@ import com.wautech.crm.lead.service.LeadNotFoundException;
 import com.wautech.crm.opportunity.entity.Opportunity;
 import com.wautech.crm.opportunity.repository.OpportunityRepository;
 import com.wautech.crm.opportunity.service.OpportunityNotFoundException;
+import com.wautech.crm.platform.search.ListSort;
+import com.wautech.crm.platform.search.SearchText;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.ArrayList;
 import java.util.UUID;
+import java.util.Map;
+import java.util.function.Function;
 
 @Service
 @Transactional
@@ -54,6 +59,15 @@ public class ActivityService {
                                              UUID opportunityId, ActivityType type) {
         return activityRepository.findActive(companyId, contactId, leadId, opportunityId, type)
                 .stream().map(ActivityResponse::from).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<ActivityResponse> listActive(UUID companyId, UUID contactId, UUID leadId, UUID opportunityId,
+                                             ActivityType type, String search, String sortBy, String sortDirection) {
+        List<Activity> rows = new ArrayList<>(activityRepository.findActive(companyId, contactId, leadId, opportunityId, type,
+                SearchText.containsPattern(search)));
+        ListSort.apply(rows, sortBy, sortDirection, SORT_FIELDS, Activity::getId);
+        return rows.stream().map(ActivityResponse::from).toList();
     }
 
     @Transactional(readOnly = true)
@@ -98,4 +112,9 @@ public class ActivityService {
 
     private record ParentRecords(Company company, Contact contact, Lead lead, Opportunity opportunity) {
     }
+
+    private static final Map<String, Function<Activity, Comparable<?>>> SORT_FIELDS = Map.ofEntries(
+            Map.entry("id", Activity::getId), Map.entry("type", a -> a.getType().name()),
+            Map.entry("subject", Activity::getSubject), Map.entry("occurredAt", Activity::getOccurredAt),
+            Map.entry("createdAt", Activity::getCreatedAt), Map.entry("updatedAt", Activity::getUpdatedAt));
 }

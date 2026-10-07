@@ -35,8 +35,13 @@ public class ContactController {
     }
 
     @GetMapping
-    public List<ContactResponse> listActive(@RequestParam(required = false) UUID companyId) {
-        return contactService.listActive(companyId);
+    public List<ContactResponse> listActive(@RequestParam(required = false) UUID companyId,
+                                            @RequestParam(required = false) String search,
+                                            @RequestParam(required = false) String sortBy,
+                                            @RequestParam(required = false) String sortDirection) {
+        return search == null && sortBy == null && sortDirection == null
+                ? contactService.listActive(companyId)
+                : contactService.listActive(companyId, search, sortBy, sortDirection);
     }
 
     @GetMapping("/{id}")

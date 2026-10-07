@@ -4,11 +4,16 @@ import com.wautech.crm.company.dto.CompanyRequest;
 import com.wautech.crm.company.dto.CompanyResponse;
 import com.wautech.crm.company.entity.Company;
 import com.wautech.crm.company.repository.CompanyRepository;
+import com.wautech.crm.platform.search.ListSort;
+import com.wautech.crm.platform.search.SearchText;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.ArrayList;
 import java.util.UUID;
+import java.util.Map;
+import java.util.function.Function;
 
 @Service
 @Transactional
@@ -28,6 +33,14 @@ public class CompanyService {
     @Transactional(readOnly = true)
     public List<CompanyResponse> listActive() {
         return companyRepository.findAllByArchivedFalseOrderByCreatedAtDesc().stream()
+                .map(CompanyResponse::from).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<CompanyResponse> listActive(String search, String sortBy, String sortDirection) {
+        var rows = new ArrayList<>(companyRepository.findActive(SearchText.containsPattern(search)));
+        ListSort.apply(rows, sortBy, sortDirection, SORT_FIELDS, Company::getId);
+        return rows.stream()
                 .map(CompanyResponse::from)
                 .toList();
     }
@@ -53,4 +66,11 @@ public class CompanyService {
     private Company findActiveCompany(UUID id) {
         return companyRepository.findByIdAndArchivedFalse(id).orElseThrow(() -> new CompanyNotFoundException(id));
     }
+
+    private static final Map<String, Function<Company, Comparable<?>>> SORT_FIELDS = Map.ofEntries(
+            Map.entry("id", Company::getId), Map.entry("name", Company::getName),
+            Map.entry("website", Company::getWebsite), Map.entry("industry", Company::getIndustry),
+            Map.entry("phone", Company::getPhone), Map.entry("email", Company::getEmail),
+            Map.entry("status", Company::getStatus), Map.entry("createdAt", Company::getCreatedAt),
+            Map.entry("updatedAt", Company::getUpdatedAt));
 }

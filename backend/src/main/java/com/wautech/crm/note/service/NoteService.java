@@ -16,11 +16,16 @@ import com.wautech.crm.note.repository.NoteRepository;
 import com.wautech.crm.opportunity.entity.Opportunity;
 import com.wautech.crm.opportunity.repository.OpportunityRepository;
 import com.wautech.crm.opportunity.service.OpportunityNotFoundException;
+import com.wautech.crm.platform.search.ListSort;
+import com.wautech.crm.platform.search.SearchText;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.ArrayList;
 import java.util.UUID;
+import java.util.Map;
+import java.util.function.Function;
 
 @Service
 @Transactional
@@ -52,6 +57,15 @@ public class NoteService {
     public List<NoteResponse> listActive(UUID companyId, UUID contactId, UUID leadId, UUID opportunityId) {
         return noteRepository.findActive(companyId, contactId, leadId, opportunityId)
                 .stream().map(NoteResponse::from).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<NoteResponse> listActive(UUID companyId, UUID contactId, UUID leadId, UUID opportunityId,
+                                        String search, String sortBy, String sortDirection) {
+        List<Note> rows = new ArrayList<>(noteRepository.findActive(companyId, contactId, leadId, opportunityId,
+                SearchText.containsPattern(search)));
+        ListSort.apply(rows, sortBy, sortDirection, SORT_FIELDS, Note::getId);
+        return rows.stream().map(NoteResponse::from).toList();
     }
 
     @Transactional(readOnly = true)
@@ -95,4 +109,8 @@ public class NoteService {
 
     private record ParentRecords(Company company, Contact contact, Lead lead, Opportunity opportunity) {
     }
+
+    private static final Map<String, Function<Note, Comparable<?>>> SORT_FIELDS = Map.ofEntries(
+            Map.entry("id", Note::getId), Map.entry("title", Note::getTitle),
+            Map.entry("createdAt", Note::getCreatedAt), Map.entry("updatedAt", Note::getUpdatedAt));
 }

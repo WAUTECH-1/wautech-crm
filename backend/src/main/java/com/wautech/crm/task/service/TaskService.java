@@ -19,12 +19,17 @@ import com.wautech.crm.task.entity.Task;
 import com.wautech.crm.task.entity.TaskPriority;
 import com.wautech.crm.task.entity.TaskStatus;
 import com.wautech.crm.task.repository.TaskRepository;
+import com.wautech.crm.platform.search.ListSort;
+import com.wautech.crm.platform.search.SearchText;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.ArrayList;
 import java.util.UUID;
+import java.util.Map;
+import java.util.function.Function;
 
 @Service
 @Transactional
@@ -59,6 +64,19 @@ public class TaskService {
         Instant now = Instant.now();
         return taskRepository.findActive(companyId, contactId, leadId, opportunityId, status, priority,
                         dueBefore, dueAfter, overdue, now)
+                .stream().map(task -> TaskResponse.from(task, now)).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<TaskResponse> listActive(UUID companyId, UUID contactId, UUID leadId, UUID opportunityId,
+                                         TaskStatus status, TaskPriority priority, Instant dueBefore,
+                                         Instant dueAfter, Boolean overdue, String search,
+                                         String sortBy, String sortDirection) {
+        Instant now = Instant.now();
+        List<Task> rows = new ArrayList<>(taskRepository.findActive(companyId, contactId, leadId, opportunityId, status, priority,
+                        dueBefore, dueAfter, overdue, SearchText.containsPattern(search), now));
+        ListSort.apply(rows, sortBy, sortDirection, SORT_FIELDS, Task::getId);
+        return rows
                 .stream().map(task -> TaskResponse.from(task, now)).toList();
     }
 
@@ -109,4 +127,10 @@ public class TaskService {
 
     private record ParentRecords(Company company, Contact contact, Lead lead, Opportunity opportunity) {
     }
+
+    private static final Map<String, Function<Task, Comparable<?>>> SORT_FIELDS = Map.ofEntries(
+            Map.entry("id", Task::getId), Map.entry("title", Task::getTitle),
+            Map.entry("status", t -> t.getStatus().name()), Map.entry("priority", t -> t.getPriority().name()),
+            Map.entry("dueAt", Task::getDueAt), Map.entry("createdAt", Task::getCreatedAt),
+            Map.entry("updatedAt", Task::getUpdatedAt));
 }

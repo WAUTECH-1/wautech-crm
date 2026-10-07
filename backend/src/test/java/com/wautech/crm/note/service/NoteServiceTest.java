@@ -97,7 +97,8 @@ class NoteServiceTest {
         UUID contactId = UUID.randomUUID();
         Note note = new Note(company(companyId), null, null, null, "Before", "Old body");
         when(noteRepository.findByIdAndArchivedFalse(id)).thenReturn(Optional.of(note));
-        when(contactRepository.findByIdAndArchivedFalse(contactId)).thenReturn(Optional.of(contact(contactId)));
+        Contact parentContact = contact(contactId);
+        when(contactRepository.findByIdAndArchivedFalse(contactId)).thenReturn(Optional.of(parentContact));
         when(noteRepository.save(note)).thenReturn(note);
 
         assertEquals("Before", noteService.getById(id).title());
@@ -174,25 +175,25 @@ class NoteServiceTest {
 
     private Company company(UUID id) {
         Company value = mock(Company.class);
-        when(value.getId()).thenReturn(id);
+        lenient().when(value.getId()).thenReturn(id);
         return value;
     }
 
     private Contact contact(UUID id) {
         Contact value = mock(Contact.class);
-        when(value.getId()).thenReturn(id);
+        lenient().when(value.getId()).thenReturn(id);
         return value;
     }
 
     private Lead lead(UUID id) {
         Lead value = mock(Lead.class);
-        when(value.getId()).thenReturn(id);
+        lenient().when(value.getId()).thenReturn(id);
         return value;
     }
 
     private Opportunity opportunity(UUID id) {
         Opportunity value = mock(Opportunity.class);
-        when(value.getId()).thenReturn(id);
+        lenient().when(value.getId()).thenReturn(id);
         return value;
     }
 

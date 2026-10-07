@@ -74,6 +74,16 @@ class LeadControllerTest {
     }
 
     @Test
+    void listForwardsSearchAndSortAlongsideExistingFilters() throws Exception {
+        UUID companyId = UUID.randomUUID();
+        when(leadService.listActive(LeadStatus.NEW, companyId, "ada", "firstName", "asc")).thenReturn(List.of());
+        mockMvc.perform(get("/api/leads").param("status", "NEW").param("companyId", companyId.toString())
+                        .param("search", "ada").param("sortBy", "firstName").param("sortDirection", "asc"))
+                .andExpect(status().isOk());
+        verify(leadService).listActive(LeadStatus.NEW, companyId, "ada", "firstName", "asc");
+    }
+
+    @Test
     void listRejectsInvalidFilters() throws Exception {
         mockMvc.perform(get("/api/leads").param("status", "BOGUS")).andExpect(status().isBadRequest());
         mockMvc.perform(get("/api/leads").param("companyId", "not-a-uuid")).andExpect(status().isBadRequest());

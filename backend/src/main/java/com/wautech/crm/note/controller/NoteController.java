@@ -38,8 +38,14 @@ public class NoteController {
     public List<NoteResponse> listActive(@RequestParam(required = false) UUID companyId,
                                          @RequestParam(required = false) UUID contactId,
                                          @RequestParam(required = false) UUID leadId,
-                                         @RequestParam(required = false) UUID opportunityId) {
-        return noteService.listActive(companyId, contactId, leadId, opportunityId);
+                                         @RequestParam(required = false) UUID opportunityId,
+                                         @RequestParam(required = false) String search,
+                                         @RequestParam(required = false) String sortBy,
+                                         @RequestParam(required = false) String sortDirection) {
+        return search == null && sortBy == null && sortDirection == null
+                ? noteService.listActive(companyId, contactId, leadId, opportunityId)
+                : noteService.listActive(companyId, contactId, leadId, opportunityId,
+                search, sortBy, sortDirection);
     }
 
     @GetMapping("/{id}")
