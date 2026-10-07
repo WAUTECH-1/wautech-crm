@@ -7,11 +7,16 @@ import com.wautech.crm.contact.dto.ContactRequest;
 import com.wautech.crm.contact.dto.ContactResponse;
 import com.wautech.crm.contact.entity.Contact;
 import com.wautech.crm.contact.repository.ContactRepository;
+import com.wautech.crm.platform.search.ListSort;
+import com.wautech.crm.platform.search.SearchText;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.ArrayList;
 import java.util.UUID;
+import java.util.Map;
+import java.util.function.Function;
 
 @Service
 @Transactional
@@ -34,12 +39,18 @@ public class ContactService {
     @Transactional(readOnly = true)
     public List<ContactResponse> listActive(UUID companyId) {
         List<Contact> contacts;
-        if (companyId == null) {
-            contacts = contactRepository.findAllByArchivedFalseOrderByCreatedAtDesc();
-        } else {
+        if (companyId == null) contacts = contactRepository.findAllByArchivedFalseOrderByCreatedAtDesc();
+        else {
             findActiveCompany(companyId);
             contacts = contactRepository.findAllByCompany_IdAndArchivedFalseOrderByCreatedAtDesc(companyId);
         }
+        return contacts.stream().map(ContactResponse::from).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<ContactResponse> listActive(UUID companyId, String search, String sortBy, String sortDirection) {
+        List<Contact> contacts = new ArrayList<>(contactRepository.findActive(companyId, SearchText.containsPattern(search)));
+        ListSort.apply(contacts, sortBy, sortDirection, SORT_FIELDS, Contact::getId);
         return contacts.stream().map(ContactResponse::from).toList();
     }
 
@@ -69,4 +80,11 @@ public class ContactService {
     private Contact findActiveContact(UUID id) {
         return contactRepository.findByIdAndArchivedFalse(id).orElseThrow(() -> new ContactNotFoundException(id));
     }
+
+    private static final Map<String, Function<Contact, Comparable<?>>> SORT_FIELDS = Map.ofEntries(
+            Map.entry("id", Contact::getId), Map.entry("firstName", Contact::getFirstName),
+            Map.entry("lastName", Contact::getLastName), Map.entry("email", Contact::getEmail),
+            Map.entry("phone", Contact::getPhone), Map.entry("jobTitle", Contact::getJobTitle),
+            Map.entry("status", Contact::getStatus),
+            Map.entry("createdAt", Contact::getCreatedAt), Map.entry("updatedAt", Contact::getUpdatedAt));
 }

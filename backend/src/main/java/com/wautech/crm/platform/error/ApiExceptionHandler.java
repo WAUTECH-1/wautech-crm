@@ -9,10 +9,13 @@ import com.wautech.crm.note.service.NoteNotFoundException;
 import com.wautech.crm.opportunity.entity.IllegalOpportunityStageTransitionException;
 import com.wautech.crm.opportunity.service.OpportunityContactCompanyMismatchException;
 import com.wautech.crm.opportunity.service.OpportunityNotFoundException;
+import com.wautech.crm.platform.search.InvalidListQueryException;
 import com.wautech.crm.task.entity.IllegalTaskStatusTransitionException;
 import com.wautech.crm.task.service.TaskNotFoundException;
+import com.wautech.crm.savedview.service.SavedViewNotFoundException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -55,6 +58,11 @@ public class ApiExceptionHandler {
         return ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, exception.getMessage());
     }
 
+    @ExceptionHandler(SavedViewNotFoundException.class)
+    ProblemDetail handleSavedViewNotFound(SavedViewNotFoundException exception) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, exception.getMessage());
+    }
+
     @ExceptionHandler({OpportunityContactCompanyMismatchException.class, IllegalOpportunityStageTransitionException.class,
             IllegalTaskStatusTransitionException.class})
     ProblemDetail handleInvalidOperation(RuntimeException exception) {
@@ -66,7 +74,9 @@ public class ApiExceptionHandler {
         return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, exception.getMessage());
     }
 
-    @ExceptionHandler({MethodArgumentNotValidException.class, MethodArgumentTypeMismatchException.class})
+    @ExceptionHandler({MethodArgumentNotValidException.class, MethodArgumentTypeMismatchException.class,
+            HttpMessageNotReadableException.class,
+            InvalidListQueryException.class})
     ProblemDetail handleInvalidRequest(Exception exception) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, "Request contains invalid input");
     }

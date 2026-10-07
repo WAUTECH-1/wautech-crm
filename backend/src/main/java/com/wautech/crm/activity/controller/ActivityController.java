@@ -40,8 +40,14 @@ public class ActivityController {
                                              @RequestParam(required = false) UUID contactId,
                                              @RequestParam(required = false) UUID leadId,
                                              @RequestParam(required = false) UUID opportunityId,
-                                             @RequestParam(required = false) ActivityType type) {
-        return activityService.listActive(companyId, contactId, leadId, opportunityId, type);
+                                             @RequestParam(required = false) ActivityType type,
+                                             @RequestParam(required = false) String search,
+                                             @RequestParam(required = false) String sortBy,
+                                             @RequestParam(required = false) String sortDirection) {
+        return search == null && sortBy == null && sortDirection == null
+                ? activityService.listActive(companyId, contactId, leadId, opportunityId, type)
+                : activityService.listActive(companyId, contactId, leadId, opportunityId, type,
+                search, sortBy, sortDirection);
     }
 
     @GetMapping("/{id}")

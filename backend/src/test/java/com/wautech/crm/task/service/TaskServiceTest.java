@@ -297,7 +297,7 @@ class TaskServiceTest {
 
     private Company company(UUID id) {
         Company company = mock(Company.class);
-        when(company.getId()).thenReturn(id);
+        lenient().when(company.getId()).thenReturn(id);
         return company;
     }
 

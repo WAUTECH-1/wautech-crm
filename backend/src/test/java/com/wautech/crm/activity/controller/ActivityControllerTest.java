@@ -133,6 +133,17 @@ class ActivityControllerTest {
     }
 
     @Test
+    void listForwardsSearchAndSortAlongsideActivityType() throws Exception {
+        when(activityService.listActive(null, null, null, null, ActivityType.CALL,
+                "intro", "subject", "asc")).thenReturn(List.of());
+        mockMvc.perform(get("/api/activities").param("type", "CALL").param("search", "intro")
+                        .param("sortBy", "subject").param("sortDirection", "asc"))
+                .andExpect(status().isOk());
+        verify(activityService).listActive(null, null, null, null, ActivityType.CALL,
+                "intro", "subject", "asc");
+    }
+
+    @Test
     void rejectsInvalidFilterValues() throws Exception {
         mockMvc.perform(get("/api/activities").param("companyId", "not-a-uuid")).andExpect(status().isBadRequest());
         mockMvc.perform(get("/api/activities").param("type", "TASK")).andExpect(status().isBadRequest());

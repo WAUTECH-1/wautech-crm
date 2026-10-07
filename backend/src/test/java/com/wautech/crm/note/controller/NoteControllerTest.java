@@ -107,6 +107,17 @@ class NoteControllerTest {
     }
 
     @Test
+    void listForwardsSearchAndSortAlongsideNoteParentFilters() throws Exception {
+        UUID companyId = UUID.randomUUID();
+        when(noteService.listActive(companyId, null, null, null, "renewal", "updatedAt", "desc"))
+                .thenReturn(List.of());
+        mockMvc.perform(get("/api/notes").param("companyId", companyId.toString()).param("search", "renewal")
+                        .param("sortBy", "updatedAt").param("sortDirection", "desc"))
+                .andExpect(status().isOk());
+        verify(noteService).listActive(companyId, null, null, null, "renewal", "updatedAt", "desc");
+    }
+
+    @Test
     void rejectsInvalidFilterId() throws Exception {
         mockMvc.perform(get("/api/notes").param("companyId", "bad-uuid")).andExpect(status().isBadRequest());
     }

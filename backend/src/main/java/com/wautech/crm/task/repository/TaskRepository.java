@@ -20,6 +20,7 @@ public interface TaskRepository extends JpaRepository<Task, UUID> {
             "and (:opportunityId is null or t.opportunity.id = :opportunityId) " +
             "and (:status is null or t.status = :status) " +
             "and (:priority is null or t.priority = :priority) " +
+            "and (:search is null or lower(t.title) like :search escape '!' or lower(t.description) like :search escape '!') " +
             "and (:dueBefore is null or t.dueAt < :dueBefore) " +
             "and (:dueAfter is null or t.dueAt > :dueAfter) " +
             "and (:overdue is null or " +
@@ -39,7 +40,15 @@ public interface TaskRepository extends JpaRepository<Task, UUID> {
                           @Param("dueBefore") Instant dueBefore,
                           @Param("dueAfter") Instant dueAfter,
                           @Param("overdue") Boolean overdue,
+                          @Param("search") String search,
                           @Param("now") Instant now);
+
+    default List<Task> findActive(UUID companyId, UUID contactId, UUID leadId, UUID opportunityId,
+                                  TaskStatus status, TaskPriority priority, Instant dueBefore, Instant dueAfter,
+                                  Boolean overdue, Instant now) {
+        return findActive(companyId, contactId, leadId, opportunityId, status, priority, dueBefore, dueAfter,
+                overdue, null, now);
+    }
 
     Optional<Task> findByIdAndArchivedFalse(UUID id);
 }

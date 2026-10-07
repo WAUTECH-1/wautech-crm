@@ -14,10 +14,17 @@ public interface OpportunityRepository extends JpaRepository<Opportunity, UUID> 
     @Query("select o from Opportunity o where o.archived = false " +
             "and (:companyId is null or o.company.id = :companyId) " +
             "and (:contactId is null or o.contact.id = :contactId) " +
-            "and (:stage is null or o.stage = :stage) order by o.createdAt desc")
+            "and (:stage is null or o.stage = :stage) " +
+            "and (:search is null or lower(o.name) like :search escape '!' or lower(o.description) like :search escape '!') " +
+            "order by o.createdAt desc")
     List<Opportunity> findActive(@Param("companyId") UUID companyId,
                                  @Param("contactId") UUID contactId,
-                                 @Param("stage") OpportunityStage stage);
+                                 @Param("stage") OpportunityStage stage,
+                                 @Param("search") String search);
+
+    default List<Opportunity> findActive(UUID companyId, UUID contactId, OpportunityStage stage) {
+        return findActive(companyId, contactId, stage, null);
+    }
 
     Optional<Opportunity> findByIdAndArchivedFalse(UUID id);
 }

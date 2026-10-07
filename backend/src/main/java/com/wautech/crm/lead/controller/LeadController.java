@@ -39,8 +39,13 @@ public class LeadController {
 
     @GetMapping
     public List<LeadResponse> listActive(@RequestParam(required = false) LeadStatus status,
-                                         @RequestParam(required = false) UUID companyId) {
-        return leadService.listActive(status, companyId);
+                                         @RequestParam(required = false) UUID companyId,
+                                         @RequestParam(required = false) String search,
+                                         @RequestParam(required = false) String sortBy,
+                                         @RequestParam(required = false) String sortDirection) {
+        return search == null && sortBy == null && sortDirection == null
+                ? leadService.listActive(status, companyId)
+                : leadService.listActive(status, companyId, search, sortBy, sortDirection);
     }
 
     @GetMapping("/{id}")

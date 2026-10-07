@@ -8,11 +8,16 @@ import com.wautech.crm.lead.dto.LeadResponse;
 import com.wautech.crm.lead.entity.Lead;
 import com.wautech.crm.lead.entity.LeadStatus;
 import com.wautech.crm.lead.repository.LeadRepository;
+import com.wautech.crm.platform.search.ListSort;
+import com.wautech.crm.platform.search.SearchText;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.ArrayList;
 import java.util.UUID;
+import java.util.Map;
+import java.util.function.Function;
 
 @Service
 @Transactional
@@ -37,13 +42,17 @@ public class LeadService {
         List<Lead> leads;
         if (status != null && companyId != null) {
             leads = leadRepository.findAllByCompany_IdAndArchivedFalseAndStatusOrderByCreatedAtDesc(companyId, status);
-        } else if (status != null) {
-            leads = leadRepository.findAllByArchivedFalseAndStatusOrderByCreatedAtDesc(status);
-        } else if (companyId != null) {
-            leads = leadRepository.findAllByCompany_IdAndArchivedFalseOrderByCreatedAtDesc(companyId);
-        } else {
-            leads = leadRepository.findAllByArchivedFalseOrderByCreatedAtDesc();
-        }
+        } else if (status != null) leads = leadRepository.findAllByArchivedFalseAndStatusOrderByCreatedAtDesc(status);
+        else if (companyId != null) leads = leadRepository.findAllByCompany_IdAndArchivedFalseOrderByCreatedAtDesc(companyId);
+        else leads = leadRepository.findAllByArchivedFalseOrderByCreatedAtDesc();
+        return leads.stream().map(LeadResponse::from).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<LeadResponse> listActive(LeadStatus status, UUID companyId, String search,
+                                         String sortBy, String sortDirection) {
+        List<Lead> leads = new ArrayList<>(leadRepository.findActive(companyId, status, SearchText.containsPattern(search)));
+        ListSort.apply(leads, sortBy, sortDirection, SORT_FIELDS, Lead::getId);
         return leads.stream().map(LeadResponse::from).toList();
     }
 
@@ -79,4 +88,11 @@ public class LeadService {
     private Lead findActiveLead(UUID id) {
         return leadRepository.findByIdAndArchivedFalse(id).orElseThrow(() -> new LeadNotFoundException(id));
     }
+
+    private static final Map<String, Function<Lead, Comparable<?>>> SORT_FIELDS = Map.ofEntries(
+            Map.entry("id", Lead::getId), Map.entry("firstName", Lead::getFirstName),
+            Map.entry("lastName", Lead::getLastName), Map.entry("email", Lead::getEmail),
+            Map.entry("phone", Lead::getPhone), Map.entry("jobTitle", Lead::getJobTitle),
+            Map.entry("status", l -> l.getStatus().name()),
+            Map.entry("createdAt", Lead::getCreatedAt), Map.entry("updatedAt", Lead::getUpdatedAt));
 }

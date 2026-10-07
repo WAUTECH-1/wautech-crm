@@ -103,6 +103,19 @@ class OpportunityControllerTest {
     }
 
     @Test
+    void listForwardsSearchAndSortAlongsideExistingFilters() throws Exception {
+        UUID companyId = UUID.randomUUID();
+        when(opportunityService.listActive(companyId, null, OpportunityStage.PROPOSAL,
+                "renewal", "name", "desc")).thenReturn(List.of());
+        mockMvc.perform(get("/api/opportunities").param("companyId", companyId.toString())
+                        .param("stage", "PROPOSAL").param("search", "renewal")
+                        .param("sortBy", "name").param("sortDirection", "desc"))
+                .andExpect(status().isOk());
+        verify(opportunityService).listActive(companyId, null, OpportunityStage.PROPOSAL,
+                "renewal", "name", "desc");
+    }
+
+    @Test
     void invalidFiltersAndStageAreRejected() throws Exception {
         mockMvc.perform(get("/api/opportunities").param("companyId", "bad-uuid"))
                 .andExpect(status().isBadRequest());

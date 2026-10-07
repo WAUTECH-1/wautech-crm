@@ -68,6 +68,15 @@ class CompanyControllerTest {
     }
 
     @Test
+    void listForwardsSearchAndSortOptions() throws Exception {
+        when(companyService.listActive("acme", "name", "asc")).thenReturn(List.of());
+        mockMvc.perform(get("/api/companies").param("search", "acme")
+                        .param("sortBy", "name").param("sortDirection", "asc"))
+                .andExpect(status().isOk());
+        verify(companyService).listActive("acme", "name", "asc");
+    }
+
+    @Test
     void getMissingCompanyReturnsNotFound() throws Exception {
         UUID id = UUID.randomUUID();
         when(companyService.getById(id)).thenThrow(new CompanyNotFoundException(id));

@@ -171,6 +171,17 @@ class TaskControllerTest {
     }
 
     @Test
+    void listForwardsSearchAndSortAlongsideTaskFilters() throws Exception {
+        when(taskService.listActive(null, null, null, null, TaskStatus.OPEN, null,
+                null, null, null, "proposal", "title", "desc")).thenReturn(List.of());
+        mockMvc.perform(get("/api/tasks").param("status", "OPEN").param("search", "proposal")
+                        .param("sortBy", "title").param("sortDirection", "desc"))
+                .andExpect(status().isOk());
+        verify(taskService).listActive(null, null, null, null, TaskStatus.OPEN, null,
+                null, null, null, "proposal", "title", "desc");
+    }
+
+    @Test
     void invalidListFiltersReturnBadRequest() throws Exception {
         mockMvc.perform(get("/api/tasks").param("companyId", "bad-id")).andExpect(status().isBadRequest());
         mockMvc.perform(get("/api/tasks").param("status", "DONE")).andExpect(status().isBadRequest());

@@ -91,6 +91,16 @@ class ContactControllerTest {
     }
 
     @Test
+    void listCombinesSearchAndSortWithExistingCompanyFilter() throws Exception {
+        UUID companyId = UUID.randomUUID();
+        when(contactService.listActive(companyId, "ada", "lastName", "desc")).thenReturn(List.of());
+        mockMvc.perform(get("/api/contacts").param("companyId", companyId.toString())
+                        .param("search", "ada").param("sortBy", "lastName").param("sortDirection", "desc"))
+                .andExpect(status().isOk());
+        verify(contactService).listActive(companyId, "ada", "lastName", "desc");
+    }
+
+    @Test
     void listRejectsInvalidCompanyFilter() throws Exception {
         mockMvc.perform(get("/api/contacts").param("companyId", "not-a-uuid"))
                 .andExpect(status().isBadRequest());
