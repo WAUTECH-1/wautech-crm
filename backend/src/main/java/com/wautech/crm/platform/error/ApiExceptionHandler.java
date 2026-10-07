@@ -5,6 +5,7 @@ import com.wautech.crm.company.service.CompanyNotFoundException;
 import com.wautech.crm.contact.service.ContactNotFoundException;
 import com.wautech.crm.lead.entity.IllegalLeadStatusTransitionException;
 import com.wautech.crm.lead.service.LeadNotFoundException;
+import com.wautech.crm.note.service.NoteNotFoundException;
 import com.wautech.crm.opportunity.entity.IllegalOpportunityStageTransitionException;
 import com.wautech.crm.opportunity.service.OpportunityContactCompanyMismatchException;
 import com.wautech.crm.opportunity.service.OpportunityNotFoundException;
@@ -36,6 +37,11 @@ public class ApiExceptionHandler {
 
     @ExceptionHandler(LeadNotFoundException.class)
     ProblemDetail handleLeadNotFound(LeadNotFoundException exception) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, exception.getMessage());
+    }
+
+    @ExceptionHandler(NoteNotFoundException.class)
+    ProblemDetail handleNoteNotFound(NoteNotFoundException exception) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, exception.getMessage());
     }
 
