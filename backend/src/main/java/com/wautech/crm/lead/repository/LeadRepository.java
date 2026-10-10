@@ -3,6 +3,8 @@ package com.wautech.crm.lead.repository;
 import com.wautech.crm.lead.entity.Lead;
 import com.wautech.crm.lead.entity.LeadStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -11,6 +13,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface LeadRepository extends JpaRepository<Lead, UUID> {
+    Page<Lead> findAllByOrganization_IdAndArchivedFalse(UUID organizationId, Pageable pageable);
     List<Lead> findAllByOrganization_IdAndArchivedFalseOrderByCreatedAtDesc(UUID organizationId);
     List<Lead> findAllByOrganization_IdAndArchivedFalseAndStatusOrderByCreatedAtDesc(UUID organizationId, LeadStatus status);
     List<Lead> findAllByOrganization_IdAndCompany_IdAndArchivedFalseOrderByCreatedAtDesc(UUID organizationId, UUID companyId);

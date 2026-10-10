@@ -33,6 +33,10 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import com.wautech.crm.datatransfer.CsvFileException;
+import com.wautech.crm.datatransfer.CsvImportValidationException;
+import com.wautech.crm.datatransfer.UnsupportedResourceTypeException;
 
 @RestControllerAdvice
 public class ApiExceptionHandler {
@@ -133,5 +137,25 @@ public class ApiExceptionHandler {
             InvalidListQueryException.class, InvalidAuditQueryException.class, InvalidNotificationPageException.class})
     ProblemDetail handleInvalidRequest(Exception exception) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, "Request contains invalid input");
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    ProblemDetail handleFileTooLarge(MaxUploadSizeExceededException exception) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.PAYLOAD_TOO_LARGE, "Uploaded file exceeds the allowed size");
+    }
+
+    @ExceptionHandler({CsvFileException.class, UnsupportedResourceTypeException.class})
+    ProblemDetail handleInvalidCsv(RuntimeException exception) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, exception.getMessage());
+    }
+
+    @ExceptionHandler(CsvImportValidationException.class)
+    ProblemDetail handleInvalidImport(CsvImportValidationException exception) {
+        ProblemDetail detail = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, exception.getMessage());
+        detail.setProperty("totalRows", exception.getResult().totalRows());
+        detail.setProperty("validRows", exception.getResult().validRows());
+        detail.setProperty("invalidRows", exception.getResult().invalidRows());
+        detail.setProperty("errors", exception.getResult().errors());
+        return detail;
     }
 }
