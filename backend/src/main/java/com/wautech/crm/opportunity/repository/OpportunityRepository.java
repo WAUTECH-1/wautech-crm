@@ -3,6 +3,8 @@ package com.wautech.crm.opportunity.repository;
 import com.wautech.crm.opportunity.entity.Opportunity;
 import com.wautech.crm.opportunity.entity.OpportunityStage;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -11,6 +13,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface OpportunityRepository extends JpaRepository<Opportunity, UUID> {
+    Page<Opportunity> findAllByOrganization_IdAndArchivedFalse(UUID organizationId, Pageable pageable);
     @Query("select o from Opportunity o where o.organization.id = :organizationId and o.archived = false " +
             "and (:companyId is null or o.company.id = :companyId) " +
             "and (:contactId is null or o.contact.id = :contactId) " +

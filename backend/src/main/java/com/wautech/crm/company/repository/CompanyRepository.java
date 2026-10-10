@@ -2,6 +2,8 @@ package com.wautech.crm.company.repository;
 
 import com.wautech.crm.company.entity.Company;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -10,6 +12,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface CompanyRepository extends JpaRepository<Company, UUID> {
+    Page<Company> findAllByOrganization_IdAndArchivedFalse(UUID organizationId, Pageable pageable);
     List<Company> findAllByOrganization_IdAndArchivedFalseOrderByCreatedAtDesc(UUID organizationId);
     @Query("select c from Company c where c.organization.id = :organizationId and c.archived = false and " +
             "(:search is null or lower(c.name) like :search escape '!' or lower(c.industry) like :search escape '!' " +

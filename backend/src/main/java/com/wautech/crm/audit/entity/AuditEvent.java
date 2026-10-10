@@ -65,8 +65,14 @@ public class AuditEvent {
         if (supplied == null || supplied.size() > 10) throw new IllegalArgumentException("Invalid audit metadata");
         Map<String, String> safe = new LinkedHashMap<>();
         supplied.forEach((key, value) -> {
-            if (!"method".equals(key) || value == null
-                    || !java.util.Set.of("GET", "POST", "PUT", "PATCH", "DELETE").contains(value)) {
+            boolean allowed = switch (key) {
+                case "method" -> value != null && java.util.Set.of("GET", "POST", "PUT", "PATCH", "DELETE").contains(value);
+                case "recordCount" -> value != null && value.matches("0|[1-9][0-9]{0,5}");
+                case "resourceType" -> value != null && java.util.Set.of("companies", "contacts", "leads", "opportunities").contains(value);
+                case "failureCode" -> value != null && value.matches("[A-Z_]{1,40}");
+                default -> false;
+            };
+            if (!allowed) {
                 throw new IllegalArgumentException("Invalid audit metadata");
             }
             safe.put(key, value);

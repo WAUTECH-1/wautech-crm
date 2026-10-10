@@ -41,6 +41,10 @@ public class CrmAuthorization {
         return roleFor(organizationId).map(OrganizationRole::canWriteCrm).orElse(false);
     }
 
+    public boolean canImport(UUID organizationId) {
+        return roleFor(organizationId).filter(role -> role == OrganizationRole.OWNER || role == OrganizationRole.ADMIN).isPresent();
+    }
+
     public boolean canManageOrganization(UUID organizationId) {
         return roleFor(organizationId).map(OrganizationRole::canManageOrganization).orElse(false);
     }

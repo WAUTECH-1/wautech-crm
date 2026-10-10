@@ -25,6 +25,22 @@ public class AuditEventWriter {
                 AuditOutcome.SUCCESS, Instant.now(), Map.of()));
     }
 
+    @Transactional
+    public void recordDataTransfer(UUID organizationId, UUID actorUserId, String eventType, String resourceType,
+            int recordCount) {
+        repository.save(new AuditEvent(organizationId, actorUserId, eventType, "DATA_TRANSFER", null,
+                AuditOutcome.SUCCESS, Instant.now(), Map.of("resourceType", resourceType,
+                        "recordCount", Integer.toString(recordCount))));
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void recordDataTransferFailure(UUID organizationId, UUID actorUserId, String operation, String resourceType,
+            int recordCount, String failureCode) {
+        repository.save(new AuditEvent(organizationId, actorUserId, "DATA_" + operation + "_FAILED", "DATA_TRANSFER", null,
+                AuditOutcome.FAILURE, Instant.now(), Map.of("resourceType", resourceType,
+                        "recordCount", Integer.toString(recordCount), "failureCode", failureCode)));
+    }
+
     /** Persists authentication and filter events independently of a business transaction. */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void recordSecurity(UUID organizationId, UUID actorUserId, String eventType, String targetType,
