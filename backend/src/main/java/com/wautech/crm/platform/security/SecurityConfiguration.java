@@ -18,6 +18,7 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.ProviderManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.core.annotation.Order;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -102,6 +103,7 @@ public class SecurityConfiguration {
     }
 
     @Bean
+    @Order(2)
     SecurityFilterChain securityFilterChain(HttpSecurity http, UserService userService,
             OrganizationMembershipService membershipService, ObjectMapper objectMapper,
             AuditEventWriter auditEventWriter,
@@ -126,6 +128,7 @@ public class SecurityConfiguration {
                                 "/actuator/health/liveness", "/actuator/health/readiness", "/api/auth/csrf").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
                         .requestMatchers("/api/auth/**").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/actuator/prometheus").denyAll()
                         .requestMatchers(HttpMethod.GET, "/actuator/**").access(operationalAdminAccess(crmAuthorizationProvider))
                         .requestMatchers("/actuator/**").denyAll()
                         .requestMatchers("/api/**").authenticated()

@@ -33,6 +33,16 @@ class HealthControllerTest extends SecurityMvcTestSupport {
     }
 
     @Test
+    void livenessAndReadinessRoutesRemainPublic() throws Exception {
+        mockMvc.perform(get("/api/health/liveness")).andExpect(status().isOk());
+        when(databaseReadiness.isDatabaseReady()).thenReturn(true);
+        mockMvc.perform(get("/api/health/readiness")).andExpect(status().isOk());
+        // The actuator handler is not loaded in this MVC slice; reaching 404 proves security permits the route.
+        mockMvc.perform(get("/actuator/health/liveness")).andExpect(status().isNotFound());
+        mockMvc.perform(get("/actuator/health/readiness")).andExpect(status().isNotFound());
+    }
+
+    @Test
     void readinessIsMinimalAndReportsDatabaseUnavailableWithoutDetails() throws Exception {
         when(databaseReadiness.isDatabaseReady()).thenReturn(false);
 

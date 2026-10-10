@@ -104,6 +104,15 @@ class OperationalAuthorizationIntegrationTest {
                 .andExpect(status().isForbidden());
     }
 
+    @Test
+    void monitoringEndpointFailsClosedWhenMonitoringConfigurationIsAbsent() throws Exception {
+        mockMvc.perform(get("/actuator/prometheus"))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/actuator/prometheus").with(user(SecurityTestIdentity.principal()))
+                        .header("X-Organization-ID", SecurityTestIdentity.ORGANIZATION_ID.toString()))
+                .andExpect(status().isForbidden());
+    }
+
     private static OrganizationMembership membership(OrganizationRole role) {
         OrganizationMembership membership = new OrganizationMembership(new Organization("Test Organization"),
                 SecurityTestIdentity.user());

@@ -32,6 +32,12 @@ server:
         secure: ${SESSION_COOKIE_SECURE:false}
         same-site: lax
 management:
+  security:
+    monitoring:
+      enabled: ${MONITORING_AUTH_ENABLED:false}
+      issuer-uri: ${MONITORING_ISSUER_URI:}
+      jwk-set-uri: ${MONITORING_JWK_SET_URI:}
+      audience: ${MONITORING_AUDIENCE:}
   endpoints:
     web:
       exposure:

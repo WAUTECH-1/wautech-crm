@@ -6,9 +6,28 @@ The public application probe `GET /api/health` (also `/api/health/liveness`) rep
 
 ## Metrics and operational access
 
-Spring Boot Actuator and Micrometer expose `GET /actuator/metrics` and `GET /actuator/prometheus`, plus metric-specific read endpoints. This includes standard HTTP request counts/latency/outcomes, JVM runtime and memory metrics, and Hikari connection-pool metrics when the pool is configured. No organization, user, email, token, or request-content tags are added. Default URI tags use Spring route patterns.
+`GET /actuator/prometheus` is reserved for a dedicated machine principal. When `MONITORING_AUTH_ENABLED=true` and issuer, JWK set URI, and audience are all configured, a separate stateless Spring Security OAuth2 Resource Server chain validates signed JWTs for this exact GET route. Tokens must be signed by a key published by the configured JWK set, have the configured `iss`, be within their validity period, contain the configured audience, and carry the `metrics.read` scope. Spring Security's standard JWT scope conversion supplies the required `SCOPE_metrics.read` authority. Missing or incomplete configuration leaves the route denied by the CRM chain and does not prevent application startup. CRM session authentication cannot access Prometheus, and the monitoring bearer token cannot access CRM APIs or other Actuator endpoints.
 
-All actuator endpoints other than the minimal liveness/readiness probes require an authenticated user, a valid active `X-Organization-ID`, and OWNER or ADMIN membership in that organization. The `/api/ops/health` diagnostic applies the same organization-scoped permission and reports only overall/database status. It does not offer cross-tenant support access. Health/metrics reads do not create audit records. Existing security denial auditing applies to rejected requests.
+Supply configuration through deployment environment or a protected configuration system; source control contains no issuer, audience, key, or working credential:
+
+| Setting | Purpose |
+| --- | --- |
+| `MONITORING_AUTH_ENABLED` | Explicit opt-in; defaults to `false`. |
+| `MONITORING_ISSUER_URI` | Exact trusted JWT `iss` value from the approved identity provider. |
+| `MONITORING_JWK_SET_URI` | HTTPS/private-network JWK set URL used for signature verification without startup-time issuer discovery. |
+| `MONITORING_AUDIENCE` | Dedicated audience for this CRM metrics resource, e.g. an environment-specific identifier configured by operations. |
+
+The intended future flow is OAuth2 client credentials from an approved identity provider, issuing short-lived JWTs with the metrics audience and `metrics.read` scope. No IdP or token-acquisition integration is included, so live machine authentication is not operational yet. Keep scraping on a private network and require TLS end-to-end (or an explicitly trusted private TLS-terminating proxy). Permit only the scraper workload to reach the endpoint at the network layer. Rotate the scraper credential at the IdP, deploy the replacement, verify scraping, then revoke the old credential; short token lifetimes bound residual access. Revoke a workload/client immediately on compromise. JWKS key rotation follows the IdP's overlap procedure; emergency key revocation may be delayed by verifier/JWKS caches, so account for cache and token lifetime when planning incident response.
+
+Prometheus export is restricted to these meter families: HTTP server request count/timing (`http.server.requests`), JVM memory used/max, GC pause, live threads, process/system CPU usage, and Hikari connection total/active/idle/pending/max/min. Tags are retained only from bounded operational keys (`uri`, `method`, `status`, `outcome`, `exception`, JVM `area`/`id`, and pool name); all other tags are removed. URI values are Spring route patterns. Organization IDs, user IDs, customer data, email addresses, tokens, and request content are not approved. Intentionally omitted families include filesystem/file-descriptor/process details, JVM buffer pools/classes/extra thread counters, logging metrics, database query metrics, and Hikari acquisition/usage timing. Detailed Actuator metric browsing endpoints and unlisted meter families are excluded from export.
+
+Actuator endpoints other than public liveness/readiness and Prometheus require an authenticated CRM user, a valid active `X-Organization-ID`, and OWNER or ADMIN membership in that organization. The `/api/ops/health` diagnostic applies the same organization-scoped permission and reports only overall/database status. It does not offer cross-tenant support access. Health/metrics reads do not create audit records. Existing security denial auditing applies to rejected CRM requests.
+
+### Monitoring verification and deployment dependencies
+
+The integration security tests use locally generated RSA keys and a real Spring Nimbus JWT encoder/decoder to exercise signature, issuer, timestamp, audience, and scope validation; they do not require an external IdP. Local verification: `cd backend; cmd /c mvnw.cmd clean verify` (or use an approved local Maven repository if the global cache is read-only). A successful test run proves the application security configuration and cryptographic checks against the test key, not connectivity or identity-provider interoperability.
+
+Production requires an approved IdP client-credentials policy, metrics-only client identity, short token lifetime and rotation/revocation process, secure environment/secret delivery, private routing, TLS, and a monitored scraper. AWS deployment additionally needs selected private networking/security-group rules and a supported token delivery/integration for the chosen CloudWatch Agent, Prometheus scraper, or OpenTelemetry Collector; this repository provisions none of them. Production JWKS availability, network policy, TLS termination, key-cache behavior, scrape operation, and IdP token issuance remain deployment checks.
 
 ## Correlation and logging
 
