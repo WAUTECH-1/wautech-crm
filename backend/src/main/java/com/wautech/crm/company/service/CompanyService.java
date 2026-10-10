@@ -1,5 +1,6 @@
 package com.wautech.crm.company.service;
 
+import com.wautech.crm.audit.AuditedMutation;
 import com.wautech.crm.company.dto.CompanyRequest;
 import com.wautech.crm.company.dto.CompanyResponse;
 import com.wautech.crm.company.entity.Company;
@@ -30,6 +31,7 @@ public class CompanyService {
     }
 
     @PreAuthorize("@crmAuthorization.canWrite(#p0)")
+    @AuditedMutation(eventType = "COMPANY_CREATED", targetType = "COMPANY")
     public CompanyResponse create(UUID organizationId, CompanyRequest request) {
         Organization organization = organizationService.requireActiveOrganization(organizationId);
         Company company = new Company(organization, request.name().trim(), request.website(), request.industry(),
@@ -64,6 +66,7 @@ public class CompanyService {
     }
 
     @PreAuthorize("@crmAuthorization.canWrite(#p0)")
+    @AuditedMutation(eventType = "COMPANY_UPDATED", targetType = "COMPANY")
     public CompanyResponse update(UUID organizationId, UUID id, CompanyRequest request) {
         organizationService.requireActiveOrganization(organizationId);
         Company company = findActiveCompany(organizationId, id);
@@ -73,6 +76,7 @@ public class CompanyService {
     }
 
     @PreAuthorize("@crmAuthorization.canWrite(#p0)")
+    @AuditedMutation(eventType = "COMPANY_ARCHIVED", targetType = "COMPANY")
     public void archive(UUID organizationId, UUID id) {
         organizationService.requireActiveOrganization(organizationId);
         Company company = findActiveCompany(organizationId, id);

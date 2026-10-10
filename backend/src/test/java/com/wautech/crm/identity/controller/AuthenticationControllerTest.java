@@ -1,5 +1,6 @@
 package com.wautech.crm.identity.controller;
 
+import com.wautech.crm.audit.entity.AuditOutcome;
 import com.wautech.crm.identity.security.CrmUserPrincipal;
 import com.wautech.crm.identity.service.DisabledUserException;
 import com.wautech.crm.identity.service.AuthenticationService;
@@ -70,6 +71,8 @@ class AuthenticationControllerTest extends SecurityMvcTestSupport {
         assertNotEquals(originalSessionId, session.getId());
         assertNotNull(login.getRequest().getSession(false)
                 .getAttribute(HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY));
+        verify(auditEventWriter).recordSecurity(isNull(), eq(SecurityTestIdentity.USER_ID), eq("LOGIN_SUCCEEDED"),
+                eq("USER"), eq(SecurityTestIdentity.USER_ID), eq(AuditOutcome.SUCCESS), eq(java.util.Map.of()));
     }
 
     @Test
@@ -88,6 +91,8 @@ class AuthenticationControllerTest extends SecurityMvcTestSupport {
                         .content(loginJson("Good-password-123")))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.detail").value("Invalid email or password"));
+        verify(auditEventWriter, times(2)).recordSecurity(isNull(), isNull(), eq("LOGIN_FAILED"), eq("USER"),
+                isNull(), eq(AuditOutcome.FAILURE), eq(java.util.Map.of()));
     }
 
     @Test
@@ -133,6 +138,8 @@ class AuthenticationControllerTest extends SecurityMvcTestSupport {
                 .andExpect(status().isNoContent());
 
         assertTrue(session.isInvalid());
+        verify(auditEventWriter).recordSecurity(isNull(), eq(SecurityTestIdentity.USER_ID), eq("LOGOUT_SUCCEEDED"),
+                eq("USER"), eq(SecurityTestIdentity.USER_ID), eq(AuditOutcome.SUCCESS), eq(java.util.Map.of()));
     }
 
     @Test

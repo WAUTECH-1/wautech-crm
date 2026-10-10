@@ -1,9 +1,13 @@
 package com.wautech.crm.platform.security;
 
+import com.wautech.crm.audit.entity.AuditOutcome;
+import com.wautech.crm.audit.service.AuditEventWriter;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.wautech.crm.identity.security.UnprovisionedPasswordHash;
+import com.wautech.crm.identity.security.CrmUserPrincipal;
 import com.wautech.crm.identity.service.UserService;
 import com.wautech.crm.organization.service.OrganizationMembershipService;
+import com.wautech.crm.platform.tenant.AuthenticatedOrganizationContext;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -31,6 +35,7 @@ import org.springframework.security.web.csrf.HttpSessionCsrfTokenRepository;
 
 import java.security.SecureRandom;
 import java.util.Base64;
+import java.util.UUID;
 
 @Configuration
 @EnableWebSecurity
@@ -75,14 +80,27 @@ public class SecurityConfiguration {
     }
 
     @Bean
-    AccessDeniedHandler apiAccessDeniedHandler(ObjectMapper objectMapper) {
-        return (request, response, exception) -> SecurityProblemWriter.write(response, objectMapper,
-                HttpStatus.FORBIDDEN, "Request is not permitted");
+    AccessDeniedHandler apiAccessDeniedHandler(ObjectMapper objectMapper, AuditEventWriter auditEventWriter) {
+        return (request, response, exception) -> {
+            var authentication = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+            UUID actorId = authentication != null && authentication.getPrincipal() instanceof CrmUserPrincipal principal
+                    ? principal.getId() : null;
+            Object organizationAttribute = request.getAttribute(AuthenticatedOrganizationContext.REQUEST_ATTRIBUTE);
+            UUID organizationId = organizationAttribute instanceof UUID id ? id : null;
+            try {
+                auditEventWriter.recordSecurity(organizationId, actorId, "ACCESS_DENIED", "API_REQUEST", null,
+                        AuditOutcome.FAILURE, java.util.Map.of("method", request.getMethod()));
+            } catch (RuntimeException auditFailure) {
+                // Preserve the generic security response if the audit store itself is unavailable.
+            }
+            SecurityProblemWriter.write(response, objectMapper, HttpStatus.FORBIDDEN, "Request is not permitted");
+        };
     }
 
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http, UserService userService,
             OrganizationMembershipService membershipService, ObjectMapper objectMapper,
+            AuditEventWriter auditEventWriter,
             SecurityContextRepository securityContextRepository, AuthenticationEntryPoint apiAuthenticationEntryPoint,
             AccessDeniedHandler apiAccessDeniedHandler) throws Exception {
         HttpSessionCsrfTokenRepository csrfRepository = new HttpSessionCsrfTokenRepository();
@@ -109,7 +127,7 @@ public class SecurityConfiguration {
                         .accessDeniedHandler(apiAccessDeniedHandler))
                 .addFilterAfter(new UserEnabledSessionFilter(userService, apiAuthenticationEntryPoint),
                         org.springframework.security.web.context.SecurityContextHolderFilter.class)
-                .addFilterAfter(new ActiveOrganizationContextFilter(membershipService, objectMapper),
+                .addFilterAfter(new ActiveOrganizationContextFilter(membershipService, objectMapper, auditEventWriter),
                         UserEnabledSessionFilter.class);
 
         return http.build();

@@ -1,5 +1,6 @@
 package com.wautech.crm.organization.service;
 
+import com.wautech.crm.audit.AuditedMutation;
 import com.wautech.crm.organization.dto.OrganizationRequest;
 import com.wautech.crm.organization.dto.OrganizationResponse;
 import com.wautech.crm.organization.entity.Organization;
@@ -19,6 +20,7 @@ public class OrganizationService {
         this.repository = repository;
     }
 
+    @AuditedMutation(eventType = "ORGANIZATION_CREATED", targetType = "ORGANIZATION")
     public OrganizationResponse create(OrganizationRequest request) {
         return OrganizationResponse.from(repository.save(new Organization(request.name().trim())));
     }
@@ -30,6 +32,7 @@ public class OrganizationService {
     }
 
     @PreAuthorize("@crmAuthorization.canManageOrganization(#p0)")
+    @AuditedMutation(eventType = "ORGANIZATION_UPDATED", targetType = "ORGANIZATION")
     public OrganizationResponse update(UUID id, OrganizationRequest request) {
         Organization organization = requireActiveOrganization(id);
         organization.update(request.name().trim());
@@ -37,6 +40,7 @@ public class OrganizationService {
     }
 
     @PreAuthorize("@crmAuthorization.canManageOrganization(#p0)")
+    @AuditedMutation(eventType = "ORGANIZATION_ARCHIVED", targetType = "ORGANIZATION")
     public void archive(UUID id) {
         Organization organization = requireActiveOrganization(id);
         organization.archive();

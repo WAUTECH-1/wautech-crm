@@ -1,5 +1,6 @@
 package com.wautech.crm.identity.service;
 
+import com.wautech.crm.audit.AuditedMutation;
 import com.wautech.crm.identity.dto.UserProfileRequest;
 import com.wautech.crm.identity.dto.UserResponse;
 import com.wautech.crm.identity.entity.User;
@@ -47,6 +48,7 @@ public class UserService {
         return UserResponse.from(repository.save(user));
     }
 
+    @AuditedMutation(eventType = "USER_ACTIVATION_CHANGED", targetType = "USER", organizationScoped = false)
     public UserResponse setEnabled(UUID id, boolean enabled) {
         if (!enabled) ensureNotLastOwner(id);
         User user = requireUser(id);

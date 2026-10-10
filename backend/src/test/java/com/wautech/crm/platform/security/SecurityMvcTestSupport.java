@@ -1,5 +1,6 @@
 package com.wautech.crm.platform.security;
 
+import com.wautech.crm.audit.service.AuditEventWriter;
 import com.wautech.crm.identity.service.UserService;
 import com.wautech.crm.organization.service.OrganizationMembershipService;
 import com.wautech.crm.platform.test.SecurityTestIdentity;
@@ -10,6 +11,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import static org.mockito.Mockito.when;
 
 public abstract class SecurityMvcTestSupport {
+    @MockitoBean protected AuditEventWriter auditEventWriter;
     @MockitoBean protected UserService userService;
     @MockitoBean protected OrganizationMembershipService membershipService;
     @MockitoBean protected UserDetailsService userDetailsService;

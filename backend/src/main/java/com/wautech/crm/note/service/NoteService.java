@@ -1,5 +1,6 @@
 package com.wautech.crm.note.service;
 
+import com.wautech.crm.audit.AuditedMutation;
 import com.wautech.crm.company.entity.Company;
 import com.wautech.crm.company.repository.CompanyRepository;
 import com.wautech.crm.company.service.CompanyNotFoundException;
@@ -52,6 +53,7 @@ public class NoteService {
     }
 
     @PreAuthorize("@crmAuthorization.canWrite(#p0)")
+    @AuditedMutation(eventType = "NOTE_CREATED", targetType = "NOTE")
     public NoteResponse create(UUID organizationId, NoteRequest request) {
         Organization organization = organizationService.requireActiveOrganization(organizationId);
         ParentRecords parents = findParents(organizationId, request);
@@ -87,6 +89,7 @@ public class NoteService {
     }
 
     @PreAuthorize("@crmAuthorization.canWrite(#p0)")
+    @AuditedMutation(eventType = "NOTE_UPDATED", targetType = "NOTE")
     public NoteResponse update(UUID organizationId, UUID id, NoteRequest request) {
         organizationService.requireActiveOrganization(organizationId);
         Note note = findActiveNote(organizationId, id);
@@ -97,6 +100,7 @@ public class NoteService {
     }
 
     @PreAuthorize("@crmAuthorization.canWrite(#p0)")
+    @AuditedMutation(eventType = "NOTE_ARCHIVED", targetType = "NOTE")
     public void archive(UUID organizationId, UUID id) {
         organizationService.requireActiveOrganization(organizationId);
         Note note = findActiveNote(organizationId, id);

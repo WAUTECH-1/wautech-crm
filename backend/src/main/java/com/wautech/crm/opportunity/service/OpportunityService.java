@@ -1,5 +1,6 @@
 package com.wautech.crm.opportunity.service;
 
+import com.wautech.crm.audit.AuditedMutation;
 import com.wautech.crm.company.entity.Company;
 import com.wautech.crm.company.repository.CompanyRepository;
 import com.wautech.crm.company.service.CompanyNotFoundException;
@@ -42,6 +43,7 @@ public class OpportunityService {
     }
 
     @PreAuthorize("@crmAuthorization.canWrite(#p0)")
+    @AuditedMutation(eventType = "OPPORTUNITY_CREATED", targetType = "OPPORTUNITY")
     public OpportunityResponse create(UUID organizationId, OpportunityRequest request) {
         Organization organization = organizationService.requireActiveOrganization(organizationId);
         Company company = findActiveCompany(organizationId, request.companyId());
@@ -78,6 +80,7 @@ public class OpportunityService {
     }
 
     @PreAuthorize("@crmAuthorization.canWrite(#p0)")
+    @AuditedMutation(eventType = "OPPORTUNITY_UPDATED", targetType = "OPPORTUNITY")
     public OpportunityResponse update(UUID organizationId, UUID id, OpportunityRequest request) {
         organizationService.requireActiveOrganization(organizationId);
         Opportunity opportunity = findActiveOpportunity(organizationId, id);
@@ -89,6 +92,7 @@ public class OpportunityService {
     }
 
     @PreAuthorize("@crmAuthorization.canWrite(#p0)")
+    @AuditedMutation(eventType = "OPPORTUNITY_STAGE_CHANGED", targetType = "OPPORTUNITY")
     public OpportunityResponse changeStage(UUID organizationId, UUID id, OpportunityStage stage) {
         organizationService.requireActiveOrganization(organizationId);
         Opportunity opportunity = findActiveOpportunity(organizationId, id);
@@ -97,6 +101,7 @@ public class OpportunityService {
     }
 
     @PreAuthorize("@crmAuthorization.canWrite(#p0)")
+    @AuditedMutation(eventType = "OPPORTUNITY_ARCHIVED", targetType = "OPPORTUNITY")
     public void archive(UUID organizationId, UUID id) {
         organizationService.requireActiveOrganization(organizationId);
         Opportunity opportunity = findActiveOpportunity(organizationId, id);

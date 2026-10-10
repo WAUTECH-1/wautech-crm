@@ -1,6 +1,7 @@
 package com.wautech.crm.platform.error;
 
 import com.wautech.crm.activity.service.ActivityNotFoundException;
+import com.wautech.crm.audit.service.InvalidAuditQueryException;
 import com.wautech.crm.company.service.CompanyNotFoundException;
 import com.wautech.crm.contact.service.ContactNotFoundException;
 import com.wautech.crm.lead.entity.IllegalLeadStatusTransitionException;
@@ -126,7 +127,7 @@ public class ApiExceptionHandler {
 
     @ExceptionHandler({MethodArgumentNotValidException.class, MethodArgumentTypeMismatchException.class,
             HttpMessageNotReadableException.class,
-            InvalidListQueryException.class})
+            InvalidListQueryException.class, InvalidAuditQueryException.class})
     ProblemDetail handleInvalidRequest(Exception exception) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, "Request contains invalid input");
     }

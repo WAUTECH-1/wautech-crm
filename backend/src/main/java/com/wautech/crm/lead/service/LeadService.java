@@ -1,5 +1,6 @@
 package com.wautech.crm.lead.service;
 
+import com.wautech.crm.audit.AuditedMutation;
 import com.wautech.crm.company.entity.Company;
 import com.wautech.crm.company.repository.CompanyRepository;
 import com.wautech.crm.company.service.CompanyNotFoundException;
@@ -37,6 +38,7 @@ public class LeadService {
     }
 
     @PreAuthorize("@crmAuthorization.canWrite(#p0)")
+    @AuditedMutation(eventType = "LEAD_CREATED", targetType = "LEAD")
     public LeadResponse create(UUID organizationId, LeadRequest request) {
         Organization organization = organizationService.requireActiveOrganization(organizationId);
         Company company = request.companyId() == null ? null : findActiveCompany(organizationId, request.companyId());
@@ -76,6 +78,7 @@ public class LeadService {
     }
 
     @PreAuthorize("@crmAuthorization.canWrite(#p0)")
+    @AuditedMutation(eventType = "LEAD_UPDATED", targetType = "LEAD")
     public LeadResponse update(UUID organizationId, UUID id, LeadRequest request) {
         organizationService.requireActiveOrganization(organizationId);
         Lead lead = findActiveLead(organizationId, id);
@@ -86,6 +89,7 @@ public class LeadService {
     }
 
     @PreAuthorize("@crmAuthorization.canWrite(#p0)")
+    @AuditedMutation(eventType = "LEAD_STATUS_CHANGED", targetType = "LEAD")
     public LeadResponse changeStatus(UUID organizationId, UUID id, LeadStatus newStatus) {
         organizationService.requireActiveOrganization(organizationId);
         Lead lead = findActiveLead(organizationId, id);
@@ -94,6 +98,7 @@ public class LeadService {
     }
 
     @PreAuthorize("@crmAuthorization.canWrite(#p0)")
+    @AuditedMutation(eventType = "LEAD_ARCHIVED", targetType = "LEAD")
     public void archive(UUID organizationId, UUID id) {
         organizationService.requireActiveOrganization(organizationId);
         Lead lead = findActiveLead(organizationId, id);
