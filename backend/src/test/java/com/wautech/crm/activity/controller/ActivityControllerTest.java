@@ -1,10 +1,13 @@
 package com.wautech.crm.activity.controller;
 
+import com.wautech.crm.platform.tenant.AuthenticatedOrganizationContext;
+import com.wautech.crm.TestOrganization;
 import com.wautech.crm.activity.dto.ActivityResponse;
 import com.wautech.crm.activity.entity.ActivityType;
 import com.wautech.crm.activity.service.ActivityService;
 import com.wautech.crm.activity.service.ActivityNotFoundException;
 import com.wautech.crm.company.service.CompanyNotFoundException;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
@@ -26,6 +29,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @WebMvcTest(ActivityController.class)
 class ActivityControllerTest {
+    @MockitoBean private AuthenticatedOrganizationContext organizationContext;
+    @BeforeEach
+    void organizationContextUsesTestOrganization() {
+        org.mockito.Mockito.when(organizationContext.requireOrganizationId()).thenReturn(com.wautech.crm.TestOrganization.ID);
+    }
+
     @Autowired private MockMvc mockMvc;
     @MockitoBean private ActivityService activityService;
 
@@ -34,7 +43,7 @@ class ActivityControllerTest {
     void createsEachSupportedActivityType(ActivityType type) throws Exception {
         UUID id = UUID.randomUUID();
         UUID companyId = UUID.randomUUID();
-        when(activityService.create(any())).thenReturn(response(id, companyId, null, null, null, type));
+        when(activityService.create(eq(TestOrganization.ID), any())).thenReturn(response(id, companyId, null, null, null, type));
 
         mockMvc.perform(post("/api/activities").contentType(MediaType.APPLICATION_JSON)
                         .content(requestJson(companyId, null, null, null, type.name(), "Customer discussion", "2026-01-01T10:00:00Z")))
@@ -73,13 +82,13 @@ class ActivityControllerTest {
     @Test
     void mapsMissingParentAndMissingOrArchivedActivityToNotFound() throws Exception {
         UUID companyId = UUID.randomUUID();
-        when(activityService.create(any())).thenThrow(new CompanyNotFoundException(companyId));
+        when(activityService.create(eq(TestOrganization.ID), any())).thenThrow(new CompanyNotFoundException(companyId));
         mockMvc.perform(post("/api/activities").contentType(MediaType.APPLICATION_JSON)
                         .content(requestJson(companyId, null, null, null, "CALL", "Call", "2026-01-01T10:00:00Z")))
                 .andExpect(status().isNotFound());
 
         UUID id = UUID.randomUUID();
-        when(activityService.getById(id)).thenThrow(new ActivityNotFoundException(id));
+        when(activityService.getById(TestOrganization.ID, id)).thenThrow(new ActivityNotFoundException(id));
         mockMvc.perform(get("/api/activities/{id}", id)).andExpect(status().isNotFound());
     }
 
@@ -87,8 +96,8 @@ class ActivityControllerTest {
     void getsAndUpdatesActivity() throws Exception {
         UUID id = UUID.randomUUID();
         UUID companyId = UUID.randomUUID();
-        when(activityService.getById(id)).thenReturn(response(id, companyId, null, null, null, ActivityType.CALL));
-        when(activityService.update(eq(id), any()))
+        when(activityService.getById(TestOrganization.ID, id)).thenReturn(response(id, companyId, null, null, null, ActivityType.CALL));
+        when(activityService.update(eq(TestOrganization.ID), eq(id), any()))
                 .thenReturn(response(id, companyId, null, null, null, ActivityType.EMAIL));
 
         mockMvc.perform(get("/api/activities/{id}", id))
@@ -106,13 +115,13 @@ class ActivityControllerTest {
         UUID contactId = UUID.randomUUID();
         UUID leadId = UUID.randomUUID();
         UUID opportunityId = UUID.randomUUID();
-        when(activityService.listActive(companyId, contactId, leadId, opportunityId, ActivityType.CALL))
+        when(activityService.listActive(TestOrganization.ID, companyId, contactId, leadId, opportunityId, ActivityType.CALL))
                 .thenReturn(List.of());
-        when(activityService.listActive(companyId, null, null, null, null)).thenReturn(List.of());
-        when(activityService.listActive(null, contactId, null, null, null)).thenReturn(List.of());
-        when(activityService.listActive(null, null, leadId, null, null)).thenReturn(List.of());
-        when(activityService.listActive(null, null, null, opportunityId, null)).thenReturn(List.of());
-        when(activityService.listActive(null, null, null, null, ActivityType.NOTE)).thenReturn(List.of());
+        when(activityService.listActive(TestOrganization.ID, companyId, null, null, null, null)).thenReturn(List.of());
+        when(activityService.listActive(TestOrganization.ID, null, contactId, null, null, null)).thenReturn(List.of());
+        when(activityService.listActive(TestOrganization.ID, null, null, leadId, null, null)).thenReturn(List.of());
+        when(activityService.listActive(TestOrganization.ID, null, null, null, opportunityId, null)).thenReturn(List.of());
+        when(activityService.listActive(TestOrganization.ID, null, null, null, null, ActivityType.NOTE)).thenReturn(List.of());
 
         mockMvc.perform(get("/api/activities").param("companyId", companyId.toString())
                         .param("contactId", contactId.toString()).param("leadId", leadId.toString())
@@ -124,22 +133,22 @@ class ActivityControllerTest {
         mockMvc.perform(get("/api/activities").param("opportunityId", opportunityId.toString())).andExpect(status().isOk());
         mockMvc.perform(get("/api/activities").param("type", "NOTE")).andExpect(status().isOk());
 
-        verify(activityService).listActive(companyId, contactId, leadId, opportunityId, ActivityType.CALL);
-        verify(activityService).listActive(companyId, null, null, null, null);
-        verify(activityService).listActive(null, contactId, null, null, null);
-        verify(activityService).listActive(null, null, leadId, null, null);
-        verify(activityService).listActive(null, null, null, opportunityId, null);
-        verify(activityService).listActive(null, null, null, null, ActivityType.NOTE);
+        verify(activityService).listActive(TestOrganization.ID, companyId, contactId, leadId, opportunityId, ActivityType.CALL);
+        verify(activityService).listActive(TestOrganization.ID, companyId, null, null, null, null);
+        verify(activityService).listActive(TestOrganization.ID, null, contactId, null, null, null);
+        verify(activityService).listActive(TestOrganization.ID, null, null, leadId, null, null);
+        verify(activityService).listActive(TestOrganization.ID, null, null, null, opportunityId, null);
+        verify(activityService).listActive(TestOrganization.ID, null, null, null, null, ActivityType.NOTE);
     }
 
     @Test
     void listForwardsSearchAndSortAlongsideActivityType() throws Exception {
-        when(activityService.listActive(null, null, null, null, ActivityType.CALL,
+        when(activityService.listActive(TestOrganization.ID, null, null, null, null, ActivityType.CALL,
                 "intro", "subject", "asc")).thenReturn(List.of());
         mockMvc.perform(get("/api/activities").param("type", "CALL").param("search", "intro")
                         .param("sortBy", "subject").param("sortDirection", "asc"))
                 .andExpect(status().isOk());
-        verify(activityService).listActive(null, null, null, null, ActivityType.CALL,
+        verify(activityService).listActive(TestOrganization.ID, null, null, null, null, ActivityType.CALL,
                 "intro", "subject", "asc");
     }
 

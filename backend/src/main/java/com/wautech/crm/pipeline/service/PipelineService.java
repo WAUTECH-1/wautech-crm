@@ -5,6 +5,7 @@ import com.wautech.crm.opportunity.entity.OpportunityStage;
 import com.wautech.crm.opportunity.repository.OpportunityRepository;
 import com.wautech.crm.pipeline.dto.PipelineResponse;
 import com.wautech.crm.pipeline.dto.PipelineStageSummary;
+import com.wautech.crm.organization.service.OrganizationService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,19 +19,22 @@ import java.util.UUID;
 @Service
 public class PipelineService {
     private final OpportunityRepository opportunityRepository;
+    private final OrganizationService organizationService;
 
-    public PipelineService(OpportunityRepository opportunityRepository) {
+    public PipelineService(OpportunityRepository opportunityRepository, OrganizationService organizationService) {
         this.opportunityRepository = opportunityRepository;
+        this.organizationService = organizationService;
     }
 
     @Transactional(readOnly = true)
-    public PipelineResponse getPipeline(UUID companyId, UUID contactId) {
+    public PipelineResponse getPipeline(UUID organizationId, UUID companyId, UUID contactId) {
+        organizationService.requireActiveOrganization(organizationId);
         Map<OpportunityStage, StageTotals> totalsByStage = new EnumMap<>(OpportunityStage.class);
         for (OpportunityStage stage : OpportunityStage.values()) {
             totalsByStage.put(stage, new StageTotals());
         }
 
-        List<Opportunity> opportunities = opportunityRepository.findActive(companyId, contactId, null);
+        List<Opportunity> opportunities = opportunityRepository.findActive(organizationId, companyId, contactId, null, null);
         for (Opportunity opportunity : opportunities) {
             totalsByStage.get(opportunity.getStage()).add(opportunity);
         }

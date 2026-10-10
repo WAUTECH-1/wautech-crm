@@ -7,6 +7,8 @@ import com.wautech.crm.contact.dto.ContactRequest;
 import com.wautech.crm.contact.dto.ContactResponse;
 import com.wautech.crm.contact.entity.Contact;
 import com.wautech.crm.contact.repository.ContactRepository;
+import com.wautech.crm.organization.entity.Organization;
+import com.wautech.crm.organization.service.OrganizationService;
 import com.wautech.crm.platform.search.ListSort;
 import com.wautech.crm.platform.search.SearchText;
 import org.springframework.stereotype.Service;
@@ -23,62 +25,73 @@ import java.util.function.Function;
 public class ContactService {
     private final ContactRepository contactRepository;
     private final CompanyRepository companyRepository;
+    private final OrganizationService organizationService;
 
-    public ContactService(ContactRepository contactRepository, CompanyRepository companyRepository) {
+    public ContactService(ContactRepository contactRepository, CompanyRepository companyRepository,
+                          OrganizationService organizationService) {
         this.contactRepository = contactRepository;
         this.companyRepository = companyRepository;
+        this.organizationService = organizationService;
     }
 
-    public ContactResponse create(ContactRequest request) {
-        Company company = findActiveCompany(request.companyId());
-        Contact contact = new Contact(company, request.firstName().trim(), request.lastName().trim(),
+    public ContactResponse create(UUID organizationId, ContactRequest request) {
+        Organization organization = organizationService.requireActiveOrganization(organizationId);
+        Company company = findActiveCompany(organizationId, request.companyId());
+        Contact contact = new Contact(organization, company, request.firstName().trim(), request.lastName().trim(),
                 request.email(), request.phone(), request.jobTitle(), request.resolvedStatus());
         return ContactResponse.from(contactRepository.save(contact));
     }
 
     @Transactional(readOnly = true)
-    public List<ContactResponse> listActive(UUID companyId) {
+    public List<ContactResponse> listActive(UUID organizationId, UUID companyId) {
+        organizationService.requireActiveOrganization(organizationId);
         List<Contact> contacts;
-        if (companyId == null) contacts = contactRepository.findAllByArchivedFalseOrderByCreatedAtDesc();
+        if (companyId == null) contacts = contactRepository.findAllByOrganization_IdAndArchivedFalseOrderByCreatedAtDesc(organizationId);
         else {
-            findActiveCompany(companyId);
-            contacts = contactRepository.findAllByCompany_IdAndArchivedFalseOrderByCreatedAtDesc(companyId);
+            findActiveCompany(organizationId, companyId);
+            contacts = contactRepository.findAllByOrganization_IdAndCompany_IdAndArchivedFalseOrderByCreatedAtDesc(organizationId, companyId);
         }
         return contacts.stream().map(ContactResponse::from).toList();
     }
 
     @Transactional(readOnly = true)
-    public List<ContactResponse> listActive(UUID companyId, String search, String sortBy, String sortDirection) {
-        List<Contact> contacts = new ArrayList<>(contactRepository.findActive(companyId, SearchText.containsPattern(search)));
+    public List<ContactResponse> listActive(UUID organizationId, UUID companyId, String search, String sortBy, String sortDirection) {
+        organizationService.requireActiveOrganization(organizationId);
+        List<Contact> contacts = new ArrayList<>(contactRepository.findActive(organizationId, companyId, SearchText.containsPattern(search)));
         ListSort.apply(contacts, sortBy, sortDirection, SORT_FIELDS, Contact::getId);
         return contacts.stream().map(ContactResponse::from).toList();
     }
 
     @Transactional(readOnly = true)
-    public ContactResponse getById(UUID id) {
-        return ContactResponse.from(findActiveContact(id));
+    public ContactResponse getById(UUID organizationId, UUID id) {
+        organizationService.requireActiveOrganization(organizationId);
+        return ContactResponse.from(findActiveContact(organizationId, id));
     }
 
-    public ContactResponse update(UUID id, ContactRequest request) {
-        Contact contact = findActiveContact(id);
-        Company company = findActiveCompany(request.companyId());
+    public ContactResponse update(UUID organizationId, UUID id, ContactRequest request) {
+        organizationService.requireActiveOrganization(organizationId);
+        Contact contact = findActiveContact(organizationId, id);
+        Company company = findActiveCompany(organizationId, request.companyId());
         contact.update(company, request.firstName().trim(), request.lastName().trim(), request.email(),
                 request.phone(), request.jobTitle(), request.resolvedStatus());
         return ContactResponse.from(contactRepository.save(contact));
     }
 
-    public void archive(UUID id) {
-        Contact contact = findActiveContact(id);
+    public void archive(UUID organizationId, UUID id) {
+        organizationService.requireActiveOrganization(organizationId);
+        Contact contact = findActiveContact(organizationId, id);
         contact.archive();
         contactRepository.save(contact);
     }
 
-    private Company findActiveCompany(UUID id) {
-        return companyRepository.findByIdAndArchivedFalse(id).orElseThrow(() -> new CompanyNotFoundException(id));
+    private Company findActiveCompany(UUID organizationId, UUID id) {
+        return companyRepository.findByIdAndOrganization_IdAndArchivedFalse(id, organizationId)
+                .orElseThrow(() -> new CompanyNotFoundException(id));
     }
 
-    private Contact findActiveContact(UUID id) {
-        return contactRepository.findByIdAndArchivedFalse(id).orElseThrow(() -> new ContactNotFoundException(id));
+    private Contact findActiveContact(UUID organizationId, UUID id) {
+        return contactRepository.findByIdAndOrganization_IdAndArchivedFalse(id, organizationId)
+                .orElseThrow(() -> new ContactNotFoundException(id));
     }
 
     private static final Map<String, Function<Contact, Comparable<?>>> SORT_FIELDS = Map.ofEntries(

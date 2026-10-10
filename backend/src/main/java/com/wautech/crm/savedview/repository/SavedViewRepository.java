@@ -8,6 +8,6 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface SavedViewRepository extends JpaRepository<SavedView, UUID> {
-    List<SavedView> findAllByArchivedFalseOrderByNameAscIdAsc();
-    Optional<SavedView> findByIdAndArchivedFalse(UUID id);
+    List<SavedView> findAllByOrganization_IdAndArchivedFalseOrderByNameAscIdAsc(UUID organizationId);
+    Optional<SavedView> findByIdAndOrganization_IdAndArchivedFalse(UUID id, UUID organizationId);
 }

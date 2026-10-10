@@ -19,6 +19,8 @@ import com.wautech.crm.opportunity.repository.OpportunityRepository;
 import com.wautech.crm.opportunity.service.OpportunityNotFoundException;
 import com.wautech.crm.platform.search.ListSort;
 import com.wautech.crm.platform.search.SearchText;
+import com.wautech.crm.organization.entity.Organization;
+import com.wautech.crm.organization.service.OrganizationService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -36,77 +38,85 @@ public class ActivityService {
     private final ContactRepository contactRepository;
     private final LeadRepository leadRepository;
     private final OpportunityRepository opportunityRepository;
+    private final OrganizationService organizationService;
 
     public ActivityService(ActivityRepository activityRepository, CompanyRepository companyRepository,
                            ContactRepository contactRepository, LeadRepository leadRepository,
-                           OpportunityRepository opportunityRepository) {
+                           OpportunityRepository opportunityRepository, OrganizationService organizationService) {
         this.activityRepository = activityRepository;
         this.companyRepository = companyRepository;
         this.contactRepository = contactRepository;
         this.leadRepository = leadRepository;
         this.opportunityRepository = opportunityRepository;
+        this.organizationService = organizationService;
     }
 
-    public ActivityResponse create(ActivityRequest request) {
-        ParentRecords parents = findParents(request);
-        Activity activity = new Activity(parents.company(), parents.contact(), parents.lead(), parents.opportunity(),
+    public ActivityResponse create(UUID organizationId, ActivityRequest request) {
+        Organization organization = organizationService.requireActiveOrganization(organizationId);
+        ParentRecords parents = findParents(organizationId, request);
+        Activity activity = new Activity(organization, parents.company(), parents.contact(), parents.lead(), parents.opportunity(),
                 request.type(), request.subject().trim(), request.description(), request.occurredAt());
         return ActivityResponse.from(activityRepository.save(activity));
     }
 
     @Transactional(readOnly = true)
-    public List<ActivityResponse> listActive(UUID companyId, UUID contactId, UUID leadId,
+    public List<ActivityResponse> listActive(UUID organizationId, UUID companyId, UUID contactId, UUID leadId,
                                              UUID opportunityId, ActivityType type) {
-        return activityRepository.findActive(companyId, contactId, leadId, opportunityId, type)
+        organizationService.requireActiveOrganization(organizationId);
+        return activityRepository.findActive(organizationId, companyId, contactId, leadId, opportunityId, type)
                 .stream().map(ActivityResponse::from).toList();
     }
 
     @Transactional(readOnly = true)
-    public List<ActivityResponse> listActive(UUID companyId, UUID contactId, UUID leadId, UUID opportunityId,
+    public List<ActivityResponse> listActive(UUID organizationId, UUID companyId, UUID contactId, UUID leadId, UUID opportunityId,
                                              ActivityType type, String search, String sortBy, String sortDirection) {
-        List<Activity> rows = new ArrayList<>(activityRepository.findActive(companyId, contactId, leadId, opportunityId, type,
+        organizationService.requireActiveOrganization(organizationId);
+        List<Activity> rows = new ArrayList<>(activityRepository.findActive(organizationId, companyId, contactId, leadId, opportunityId, type,
                 SearchText.containsPattern(search)));
         ListSort.apply(rows, sortBy, sortDirection, SORT_FIELDS, Activity::getId);
         return rows.stream().map(ActivityResponse::from).toList();
     }
 
     @Transactional(readOnly = true)
-    public ActivityResponse getById(UUID id) {
-        return ActivityResponse.from(findActiveActivity(id));
+    public ActivityResponse getById(UUID organizationId, UUID id) {
+        organizationService.requireActiveOrganization(organizationId);
+        return ActivityResponse.from(findActiveActivity(organizationId, id));
     }
 
-    public ActivityResponse update(UUID id, ActivityRequest request) {
-        Activity activity = findActiveActivity(id);
-        ParentRecords parents = findParents(request);
+    public ActivityResponse update(UUID organizationId, UUID id, ActivityRequest request) {
+        organizationService.requireActiveOrganization(organizationId);
+        Activity activity = findActiveActivity(organizationId, id);
+        ParentRecords parents = findParents(organizationId, request);
         activity.update(parents.company(), parents.contact(), parents.lead(), parents.opportunity(), request.type(),
                 request.subject().trim(), request.description(), request.occurredAt());
         return ActivityResponse.from(activityRepository.save(activity));
     }
 
-    public void archive(UUID id) {
-        Activity activity = findActiveActivity(id);
+    public void archive(UUID organizationId, UUID id) {
+        organizationService.requireActiveOrganization(organizationId);
+        Activity activity = findActiveActivity(organizationId, id);
         activity.archive();
         activityRepository.save(activity);
     }
 
-    private ParentRecords findParents(ActivityRequest request) {
+    private ParentRecords findParents(UUID organizationId, ActivityRequest request) {
         Company company = request.companyId() == null ? null : companyRepository
-                .findByIdAndArchivedFalse(request.companyId())
+                .findByIdAndOrganization_IdAndArchivedFalse(request.companyId(), organizationId)
                 .orElseThrow(() -> new CompanyNotFoundException(request.companyId()));
         Contact contact = request.contactId() == null ? null : contactRepository
-                .findByIdAndArchivedFalse(request.contactId())
+                .findByIdAndOrganization_IdAndArchivedFalse(request.contactId(), organizationId)
                 .orElseThrow(() -> new ContactNotFoundException(request.contactId()));
         Lead lead = request.leadId() == null ? null : leadRepository
-                .findByIdAndArchivedFalse(request.leadId())
+                .findByIdAndOrganization_IdAndArchivedFalse(request.leadId(), organizationId)
                 .orElseThrow(() -> new LeadNotFoundException(request.leadId()));
         Opportunity opportunity = request.opportunityId() == null ? null : opportunityRepository
-                .findByIdAndArchivedFalse(request.opportunityId())
+                .findByIdAndOrganization_IdAndArchivedFalse(request.opportunityId(), organizationId)
                 .orElseThrow(() -> new OpportunityNotFoundException(request.opportunityId()));
         return new ParentRecords(company, contact, lead, opportunity);
     }
 
-    private Activity findActiveActivity(UUID id) {
-        return activityRepository.findByIdAndArchivedFalse(id)
+    private Activity findActiveActivity(UUID organizationId, UUID id) {
+        return activityRepository.findByIdAndOrganization_IdAndArchivedFalse(id, organizationId)
                 .orElseThrow(() -> new ActivityNotFoundException(id));
     }
 

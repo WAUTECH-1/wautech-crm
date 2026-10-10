@@ -18,6 +18,8 @@ import com.wautech.crm.opportunity.repository.OpportunityRepository;
 import com.wautech.crm.opportunity.service.OpportunityNotFoundException;
 import com.wautech.crm.platform.search.ListSort;
 import com.wautech.crm.platform.search.SearchText;
+import com.wautech.crm.organization.entity.Organization;
+import com.wautech.crm.organization.service.OrganizationService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -35,76 +37,85 @@ public class NoteService {
     private final ContactRepository contactRepository;
     private final LeadRepository leadRepository;
     private final OpportunityRepository opportunityRepository;
+    private final OrganizationService organizationService;
 
     public NoteService(NoteRepository noteRepository, CompanyRepository companyRepository,
                        ContactRepository contactRepository, LeadRepository leadRepository,
-                       OpportunityRepository opportunityRepository) {
+                       OpportunityRepository opportunityRepository, OrganizationService organizationService) {
         this.noteRepository = noteRepository;
         this.companyRepository = companyRepository;
         this.contactRepository = contactRepository;
         this.leadRepository = leadRepository;
         this.opportunityRepository = opportunityRepository;
+        this.organizationService = organizationService;
     }
 
-    public NoteResponse create(NoteRequest request) {
-        ParentRecords parents = findParents(request);
-        Note note = new Note(parents.company(), parents.contact(), parents.lead(), parents.opportunity(),
+    public NoteResponse create(UUID organizationId, NoteRequest request) {
+        Organization organization = organizationService.requireActiveOrganization(organizationId);
+        ParentRecords parents = findParents(organizationId, request);
+        Note note = new Note(organization, parents.company(), parents.contact(), parents.lead(), parents.opportunity(),
                 request.title().trim(), request.body());
         return NoteResponse.from(noteRepository.save(note));
     }
 
     @Transactional(readOnly = true)
-    public List<NoteResponse> listActive(UUID companyId, UUID contactId, UUID leadId, UUID opportunityId) {
-        return noteRepository.findActive(companyId, contactId, leadId, opportunityId)
+    public List<NoteResponse> listActive(UUID organizationId, UUID companyId, UUID contactId, UUID leadId, UUID opportunityId) {
+        organizationService.requireActiveOrganization(organizationId);
+        return noteRepository.findActive(organizationId, companyId, contactId, leadId, opportunityId)
                 .stream().map(NoteResponse::from).toList();
     }
 
     @Transactional(readOnly = true)
-    public List<NoteResponse> listActive(UUID companyId, UUID contactId, UUID leadId, UUID opportunityId,
+    public List<NoteResponse> listActive(UUID organizationId, UUID companyId, UUID contactId, UUID leadId, UUID opportunityId,
                                         String search, String sortBy, String sortDirection) {
-        List<Note> rows = new ArrayList<>(noteRepository.findActive(companyId, contactId, leadId, opportunityId,
+        organizationService.requireActiveOrganization(organizationId);
+        List<Note> rows = new ArrayList<>(noteRepository.findActive(organizationId, companyId, contactId, leadId, opportunityId,
                 SearchText.containsPattern(search)));
         ListSort.apply(rows, sortBy, sortDirection, SORT_FIELDS, Note::getId);
         return rows.stream().map(NoteResponse::from).toList();
     }
 
     @Transactional(readOnly = true)
-    public NoteResponse getById(UUID id) {
-        return NoteResponse.from(findActiveNote(id));
+    public NoteResponse getById(UUID organizationId, UUID id) {
+        organizationService.requireActiveOrganization(organizationId);
+        return NoteResponse.from(findActiveNote(organizationId, id));
     }
 
-    public NoteResponse update(UUID id, NoteRequest request) {
-        Note note = findActiveNote(id);
-        ParentRecords parents = findParents(request);
+    public NoteResponse update(UUID organizationId, UUID id, NoteRequest request) {
+        organizationService.requireActiveOrganization(organizationId);
+        Note note = findActiveNote(organizationId, id);
+        ParentRecords parents = findParents(organizationId, request);
         note.update(parents.company(), parents.contact(), parents.lead(), parents.opportunity(),
                 request.title().trim(), request.body());
         return NoteResponse.from(noteRepository.save(note));
     }
 
-    public void archive(UUID id) {
-        Note note = findActiveNote(id);
+    public void archive(UUID organizationId, UUID id) {
+        organizationService.requireActiveOrganization(organizationId);
+        Note note = findActiveNote(organizationId, id);
         note.archive();
         noteRepository.save(note);
     }
 
-    private ParentRecords findParents(NoteRequest request) {
+    private ParentRecords findParents(UUID organizationId, NoteRequest request) {
         Company company = request.companyId() == null ? null : companyRepository
-                .findByIdAndArchivedFalse(request.companyId())
+                .findByIdAndOrganization_IdAndArchivedFalse(request.companyId(), organizationId)
                 .orElseThrow(() -> new CompanyNotFoundException(request.companyId()));
         Contact contact = request.contactId() == null ? null : contactRepository
-                .findByIdAndArchivedFalse(request.contactId())
+                .findByIdAndOrganization_IdAndArchivedFalse(request.contactId(), organizationId)
                 .orElseThrow(() -> new ContactNotFoundException(request.contactId()));
         Lead lead = request.leadId() == null ? null : leadRepository
-                .findByIdAndArchivedFalse(request.leadId())
+                .findByIdAndOrganization_IdAndArchivedFalse(request.leadId(), organizationId)
                 .orElseThrow(() -> new LeadNotFoundException(request.leadId()));
         Opportunity opportunity = request.opportunityId() == null ? null : opportunityRepository
-                .findByIdAndArchivedFalse(request.opportunityId())
+                .findByIdAndOrganization_IdAndArchivedFalse(request.opportunityId(), organizationId)
                 .orElseThrow(() -> new OpportunityNotFoundException(request.opportunityId()));
         return new ParentRecords(company, contact, lead, opportunity);
     }
 
-    private Note findActiveNote(UUID id) {
-        return noteRepository.findByIdAndArchivedFalse(id).orElseThrow(() -> new NoteNotFoundException(id));
+    private Note findActiveNote(UUID organizationId, UUID id) {
+        return noteRepository.findByIdAndOrganization_IdAndArchivedFalse(id, organizationId)
+                .orElseThrow(() -> new NoteNotFoundException(id));
     }
 
     private record ParentRecords(Company company, Contact contact, Lead lead, Opportunity opportunity) {

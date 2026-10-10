@@ -2,6 +2,7 @@ package com.wautech.crm.opportunity.entity;
 
 import com.wautech.crm.company.entity.Company;
 import com.wautech.crm.contact.entity.Contact;
+import com.wautech.crm.organization.entity.Organization;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -26,6 +27,10 @@ public class Opportunity {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "organization_id", nullable = false)
+    private Organization organization;
 
     @Column(nullable = false, length = 200)
     private String name;
@@ -66,8 +71,9 @@ public class Opportunity {
     protected Opportunity() {
     }
 
-    public Opportunity(String name, String description, BigDecimal amount, String currency,
+    public Opportunity(Organization organization, String name, String description, BigDecimal amount, String currency,
                        OpportunityStage stage, LocalDate expectedCloseDate, Company company, Contact contact) {
+        this.organization = organization;
         this.name = name;
         this.description = description;
         this.amount = amount;
@@ -118,6 +124,7 @@ public class Opportunity {
     }
 
     public UUID getId() { return id; }
+    public Organization getOrganization() { return organization; }
     public String getName() { return name; }
     public String getDescription() { return description; }
     public BigDecimal getAmount() { return amount; }

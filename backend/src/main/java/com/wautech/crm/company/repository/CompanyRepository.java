@@ -10,11 +10,11 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface CompanyRepository extends JpaRepository<Company, UUID> {
-    List<Company> findAllByArchivedFalseOrderByCreatedAtDesc();
-    @Query("select c from Company c where c.archived = false and " +
+    List<Company> findAllByOrganization_IdAndArchivedFalseOrderByCreatedAtDesc(UUID organizationId);
+    @Query("select c from Company c where c.organization.id = :organizationId and c.archived = false and " +
             "(:search is null or lower(c.name) like :search escape '!' or lower(c.industry) like :search escape '!' " +
             "or lower(c.website) like :search escape '!' or lower(c.email) like :search escape '!' " +
             "or lower(c.phone) like :search escape '!') order by c.createdAt desc")
-    List<Company> findActive(@Param("search") String search);
-    Optional<Company> findByIdAndArchivedFalse(UUID id);
+    List<Company> findActive(@Param("organizationId") UUID organizationId, @Param("search") String search);
+    Optional<Company> findByIdAndOrganization_IdAndArchivedFalse(UUID id, UUID organizationId);
 }

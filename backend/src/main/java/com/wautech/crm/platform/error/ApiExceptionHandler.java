@@ -13,6 +13,8 @@ import com.wautech.crm.platform.search.InvalidListQueryException;
 import com.wautech.crm.task.entity.IllegalTaskStatusTransitionException;
 import com.wautech.crm.task.service.TaskNotFoundException;
 import com.wautech.crm.savedview.service.SavedViewNotFoundException;
+import com.wautech.crm.organization.service.OrganizationNotFoundException;
+import com.wautech.crm.platform.tenant.OrganizationContextUnavailableException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -23,6 +25,15 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 
 @RestControllerAdvice
 public class ApiExceptionHandler {
+    @ExceptionHandler(OrganizationNotFoundException.class)
+    ProblemDetail handleOrganizationNotFound(OrganizationNotFoundException exception) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, exception.getMessage());
+    }
+
+    @ExceptionHandler(OrganizationContextUnavailableException.class)
+    ProblemDetail handleOrganizationContextUnavailable(OrganizationContextUnavailableException exception) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.SERVICE_UNAVAILABLE, exception.getMessage());
+    }
     @ExceptionHandler(ActivityNotFoundException.class)
     ProblemDetail handleActivityNotFound(ActivityNotFoundException exception) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, exception.getMessage());

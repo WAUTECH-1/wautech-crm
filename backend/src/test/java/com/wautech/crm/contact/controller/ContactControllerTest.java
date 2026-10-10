@@ -1,9 +1,12 @@
 package com.wautech.crm.contact.controller;
 
+import com.wautech.crm.platform.tenant.AuthenticatedOrganizationContext;
+import com.wautech.crm.TestOrganization;
 import com.wautech.crm.company.service.CompanyNotFoundException;
 import com.wautech.crm.contact.dto.ContactResponse;
 import com.wautech.crm.contact.service.ContactNotFoundException;
 import com.wautech.crm.contact.service.ContactService;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -21,8 +24,16 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @WebMvcTest(ContactController.class)
 class ContactControllerTest {
+    @BeforeEach
+    void organizationContextUsesTestOrganization() {
+        org.mockito.Mockito.when(organizationContext.requireOrganizationId()).thenReturn(com.wautech.crm.TestOrganization.ID);
+    }
+
     @Autowired
     private MockMvc mockMvc;
+
+    @MockitoBean
+    private AuthenticatedOrganizationContext organizationContext;
 
     @MockitoBean
     private ContactService contactService;
@@ -31,7 +42,7 @@ class ContactControllerTest {
     void createReturnsContactResponse() throws Exception {
         UUID id = UUID.randomUUID();
         UUID companyId = UUID.randomUUID();
-        when(contactService.create(any())).thenReturn(response(id, companyId, "Ada", "Lovelace"));
+        when(contactService.create(eq(TestOrganization.ID), any())).thenReturn(response(id, companyId, "Ada", "Lovelace"));
 
         mockMvc.perform(post("/api/contacts")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -69,7 +80,7 @@ class ContactControllerTest {
     @Test
     void createReturnsNotFoundForMissingCompany() throws Exception {
         UUID companyId = UUID.randomUUID();
-        when(contactService.create(any())).thenThrow(new CompanyNotFoundException(companyId));
+        when(contactService.create(eq(TestOrganization.ID), any())).thenThrow(new CompanyNotFoundException(companyId));
 
         mockMvc.perform(post("/api/contacts")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -81,23 +92,23 @@ class ContactControllerTest {
     @Test
     void listReturnsContactsAndSupportsCompanyFilter() throws Exception {
         UUID companyId = UUID.randomUUID();
-        when(contactService.listActive(companyId)).thenReturn(List.of(response(UUID.randomUUID(), companyId, "Ada", "Lovelace")));
+        when(contactService.listActive(TestOrganization.ID, companyId)).thenReturn(List.of(response(UUID.randomUUID(), companyId, "Ada", "Lovelace")));
 
         mockMvc.perform(get("/api/contacts").param("companyId", companyId.toString()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].firstName").value("Ada"));
 
-        verify(contactService).listActive(companyId);
+        verify(contactService).listActive(TestOrganization.ID, companyId);
     }
 
     @Test
     void listCombinesSearchAndSortWithExistingCompanyFilter() throws Exception {
         UUID companyId = UUID.randomUUID();
-        when(contactService.listActive(companyId, "ada", "lastName", "desc")).thenReturn(List.of());
+        when(contactService.listActive(TestOrganization.ID, companyId, "ada", "lastName", "desc")).thenReturn(List.of());
         mockMvc.perform(get("/api/contacts").param("companyId", companyId.toString())
                         .param("search", "ada").param("sortBy", "lastName").param("sortDirection", "desc"))
                 .andExpect(status().isOk());
-        verify(contactService).listActive(companyId, "ada", "lastName", "desc");
+        verify(contactService).listActive(TestOrganization.ID, companyId, "ada", "lastName", "desc");
     }
 
     @Test
@@ -111,7 +122,7 @@ class ContactControllerTest {
     @Test
     void getMissingOrArchivedContactReturnsNotFound() throws Exception {
         UUID id = UUID.randomUUID();
-        when(contactService.getById(id)).thenThrow(new ContactNotFoundException(id));
+        when(contactService.getById(TestOrganization.ID, id)).thenThrow(new ContactNotFoundException(id));
 
         mockMvc.perform(get("/api/contacts/{id}", id))
                 .andExpect(status().isNotFound())
@@ -122,7 +133,7 @@ class ContactControllerTest {
     void updateReturnsUpdatedContact() throws Exception {
         UUID id = UUID.randomUUID();
         UUID companyId = UUID.randomUUID();
-        when(contactService.update(eq(id), any())).thenReturn(response(id, companyId, "Augusta", "King"));
+        when(contactService.update(eq(TestOrganization.ID), eq(id), any())).thenReturn(response(id, companyId, "Augusta", "King"));
 
         mockMvc.perform(put("/api/contacts/{id}", id)
                         .contentType(MediaType.APPLICATION_JSON)

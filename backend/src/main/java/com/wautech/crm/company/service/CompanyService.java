@@ -4,6 +4,8 @@ import com.wautech.crm.company.dto.CompanyRequest;
 import com.wautech.crm.company.dto.CompanyResponse;
 import com.wautech.crm.company.entity.Company;
 import com.wautech.crm.company.repository.CompanyRepository;
+import com.wautech.crm.organization.entity.Organization;
+import com.wautech.crm.organization.service.OrganizationService;
 import com.wautech.crm.platform.search.ListSort;
 import com.wautech.crm.platform.search.SearchText;
 import org.springframework.stereotype.Service;
@@ -19,26 +21,31 @@ import java.util.function.Function;
 @Transactional
 public class CompanyService {
     private final CompanyRepository companyRepository;
+    private final OrganizationService organizationService;
 
-    public CompanyService(CompanyRepository companyRepository) {
+    public CompanyService(CompanyRepository companyRepository, OrganizationService organizationService) {
         this.companyRepository = companyRepository;
+        this.organizationService = organizationService;
     }
 
-    public CompanyResponse create(CompanyRequest request) {
-        Company company = new Company(request.name().trim(), request.website(), request.industry(),
+    public CompanyResponse create(UUID organizationId, CompanyRequest request) {
+        Organization organization = organizationService.requireActiveOrganization(organizationId);
+        Company company = new Company(organization, request.name().trim(), request.website(), request.industry(),
                 request.phone(), request.email(), request.resolvedStatus());
         return CompanyResponse.from(companyRepository.save(company));
     }
 
     @Transactional(readOnly = true)
-    public List<CompanyResponse> listActive() {
-        return companyRepository.findAllByArchivedFalseOrderByCreatedAtDesc().stream()
+    public List<CompanyResponse> listActive(UUID organizationId) {
+        organizationService.requireActiveOrganization(organizationId);
+        return companyRepository.findAllByOrganization_IdAndArchivedFalseOrderByCreatedAtDesc(organizationId).stream()
                 .map(CompanyResponse::from).toList();
     }
 
     @Transactional(readOnly = true)
-    public List<CompanyResponse> listActive(String search, String sortBy, String sortDirection) {
-        var rows = new ArrayList<>(companyRepository.findActive(SearchText.containsPattern(search)));
+    public List<CompanyResponse> listActive(UUID organizationId, String search, String sortBy, String sortDirection) {
+        organizationService.requireActiveOrganization(organizationId);
+        var rows = new ArrayList<>(companyRepository.findActive(organizationId, SearchText.containsPattern(search)));
         ListSort.apply(rows, sortBy, sortDirection, SORT_FIELDS, Company::getId);
         return rows.stream()
                 .map(CompanyResponse::from)
@@ -46,25 +53,29 @@ public class CompanyService {
     }
 
     @Transactional(readOnly = true)
-    public CompanyResponse getById(UUID id) {
-        return CompanyResponse.from(findActiveCompany(id));
+    public CompanyResponse getById(UUID organizationId, UUID id) {
+        organizationService.requireActiveOrganization(organizationId);
+        return CompanyResponse.from(findActiveCompany(organizationId, id));
     }
 
-    public CompanyResponse update(UUID id, CompanyRequest request) {
-        Company company = findActiveCompany(id);
+    public CompanyResponse update(UUID organizationId, UUID id, CompanyRequest request) {
+        organizationService.requireActiveOrganization(organizationId);
+        Company company = findActiveCompany(organizationId, id);
         company.update(request.name().trim(), request.website(), request.industry(), request.phone(),
                 request.email(), request.resolvedStatus());
         return CompanyResponse.from(companyRepository.save(company));
     }
 
-    public void archive(UUID id) {
-        Company company = findActiveCompany(id);
+    public void archive(UUID organizationId, UUID id) {
+        organizationService.requireActiveOrganization(organizationId);
+        Company company = findActiveCompany(organizationId, id);
         company.archive();
         companyRepository.save(company);
     }
 
-    private Company findActiveCompany(UUID id) {
-        return companyRepository.findByIdAndArchivedFalse(id).orElseThrow(() -> new CompanyNotFoundException(id));
+    private Company findActiveCompany(UUID organizationId, UUID id) {
+        return companyRepository.findByIdAndOrganization_IdAndArchivedFalse(id, organizationId)
+                .orElseThrow(() -> new CompanyNotFoundException(id));
     }
 
     private static final Map<String, Function<Company, Comparable<?>>> SORT_FIELDS = Map.ofEntries(

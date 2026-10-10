@@ -1,6 +1,7 @@
 package com.wautech.crm.lead.entity;
 
 import com.wautech.crm.company.entity.Company;
+import com.wautech.crm.organization.entity.Organization;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -23,6 +24,10 @@ public class Lead {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "organization_id", nullable = false)
+    private Organization organization;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "company_id")
@@ -59,7 +64,8 @@ public class Lead {
     protected Lead() {
     }
 
-    public Lead(Company company, String firstName, String lastName, String email, String phone, String jobTitle) {
+    public Lead(Organization organization, Company company, String firstName, String lastName, String email, String phone, String jobTitle) {
+        this.organization = organization;
         this.company = company;
         this.firstName = firstName;
         this.lastName = lastName;
@@ -105,6 +111,7 @@ public class Lead {
     }
 
     public UUID getId() { return id; }
+    public Organization getOrganization() { return organization; }
     public Company getCompany() { return company; }
     public String getFirstName() { return firstName; }
     public String getLastName() { return lastName; }

@@ -21,6 +21,8 @@ import com.wautech.crm.task.entity.TaskStatus;
 import com.wautech.crm.task.repository.TaskRepository;
 import com.wautech.crm.platform.search.ListSort;
 import com.wautech.crm.platform.search.SearchText;
+import com.wautech.crm.organization.entity.Organization;
+import com.wautech.crm.organization.service.OrganizationService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -39,41 +41,46 @@ public class TaskService {
     private final ContactRepository contactRepository;
     private final LeadRepository leadRepository;
     private final OpportunityRepository opportunityRepository;
+    private final OrganizationService organizationService;
 
     public TaskService(TaskRepository taskRepository, CompanyRepository companyRepository,
                        ContactRepository contactRepository, LeadRepository leadRepository,
-                       OpportunityRepository opportunityRepository) {
+                       OpportunityRepository opportunityRepository, OrganizationService organizationService) {
         this.taskRepository = taskRepository;
         this.companyRepository = companyRepository;
         this.contactRepository = contactRepository;
         this.leadRepository = leadRepository;
         this.opportunityRepository = opportunityRepository;
+        this.organizationService = organizationService;
     }
 
-    public TaskResponse create(TaskRequest request) {
-        ParentRecords parents = findParents(request);
-        Task task = new Task(parents.company(), parents.contact(), parents.lead(), parents.opportunity(),
+    public TaskResponse create(UUID organizationId, TaskRequest request) {
+        Organization organization = organizationService.requireActiveOrganization(organizationId);
+        ParentRecords parents = findParents(organizationId, request);
+        Task task = new Task(organization, parents.company(), parents.contact(), parents.lead(), parents.opportunity(),
                 request.title().trim(), request.description(), request.priority(), request.dueAt());
         return TaskResponse.from(taskRepository.save(task));
     }
 
     @Transactional(readOnly = true)
-    public List<TaskResponse> listActive(UUID companyId, UUID contactId, UUID leadId, UUID opportunityId,
+    public List<TaskResponse> listActive(UUID organizationId, UUID companyId, UUID contactId, UUID leadId, UUID opportunityId,
                                          TaskStatus status, TaskPriority priority, Instant dueBefore,
                                          Instant dueAfter, Boolean overdue) {
+        organizationService.requireActiveOrganization(organizationId);
         Instant now = Instant.now();
-        return taskRepository.findActive(companyId, contactId, leadId, opportunityId, status, priority,
-                        dueBefore, dueAfter, overdue, now)
+        return taskRepository.findActive(organizationId, companyId, contactId, leadId, opportunityId, status, priority,
+                        dueBefore, dueAfter, overdue, null, now)
                 .stream().map(task -> TaskResponse.from(task, now)).toList();
     }
 
     @Transactional(readOnly = true)
-    public List<TaskResponse> listActive(UUID companyId, UUID contactId, UUID leadId, UUID opportunityId,
+    public List<TaskResponse> listActive(UUID organizationId, UUID companyId, UUID contactId, UUID leadId, UUID opportunityId,
                                          TaskStatus status, TaskPriority priority, Instant dueBefore,
                                          Instant dueAfter, Boolean overdue, String search,
                                          String sortBy, String sortDirection) {
+        organizationService.requireActiveOrganization(organizationId);
         Instant now = Instant.now();
-        List<Task> rows = new ArrayList<>(taskRepository.findActive(companyId, contactId, leadId, opportunityId, status, priority,
+        List<Task> rows = new ArrayList<>(taskRepository.findActive(organizationId, companyId, contactId, leadId, opportunityId, status, priority,
                         dueBefore, dueAfter, overdue, SearchText.containsPattern(search), now));
         ListSort.apply(rows, sortBy, sortDirection, SORT_FIELDS, Task::getId);
         return rows
@@ -81,48 +88,53 @@ public class TaskService {
     }
 
     @Transactional(readOnly = true)
-    public TaskResponse getById(UUID id) {
-        return TaskResponse.from(findActiveTask(id));
+    public TaskResponse getById(UUID organizationId, UUID id) {
+        organizationService.requireActiveOrganization(organizationId);
+        return TaskResponse.from(findActiveTask(organizationId, id));
     }
 
-    public TaskResponse update(UUID id, TaskRequest request) {
-        Task task = findActiveTask(id);
-        ParentRecords parents = findParents(request);
+    public TaskResponse update(UUID organizationId, UUID id, TaskRequest request) {
+        organizationService.requireActiveOrganization(organizationId);
+        Task task = findActiveTask(organizationId, id);
+        ParentRecords parents = findParents(organizationId, request);
         task.update(parents.company(), parents.contact(), parents.lead(), parents.opportunity(),
                 request.title().trim(), request.description(), request.priority(), request.dueAt());
         return TaskResponse.from(taskRepository.save(task));
     }
 
-    public TaskResponse changeStatus(UUID id, TaskStatus status) {
-        Task task = findActiveTask(id);
+    public TaskResponse changeStatus(UUID organizationId, UUID id, TaskStatus status) {
+        organizationService.requireActiveOrganization(organizationId);
+        Task task = findActiveTask(organizationId, id);
         task.changeStatus(status);
         return TaskResponse.from(taskRepository.save(task));
     }
 
-    public void archive(UUID id) {
-        Task task = findActiveTask(id);
+    public void archive(UUID organizationId, UUID id) {
+        organizationService.requireActiveOrganization(organizationId);
+        Task task = findActiveTask(organizationId, id);
         task.archive();
         taskRepository.save(task);
     }
 
-    private ParentRecords findParents(TaskRequest request) {
+    private ParentRecords findParents(UUID organizationId, TaskRequest request) {
         Company company = request.companyId() == null ? null : companyRepository
-                .findByIdAndArchivedFalse(request.companyId())
+                .findByIdAndOrganization_IdAndArchivedFalse(request.companyId(), organizationId)
                 .orElseThrow(() -> new CompanyNotFoundException(request.companyId()));
         Contact contact = request.contactId() == null ? null : contactRepository
-                .findByIdAndArchivedFalse(request.contactId())
+                .findByIdAndOrganization_IdAndArchivedFalse(request.contactId(), organizationId)
                 .orElseThrow(() -> new ContactNotFoundException(request.contactId()));
         Lead lead = request.leadId() == null ? null : leadRepository
-                .findByIdAndArchivedFalse(request.leadId())
+                .findByIdAndOrganization_IdAndArchivedFalse(request.leadId(), organizationId)
                 .orElseThrow(() -> new LeadNotFoundException(request.leadId()));
         Opportunity opportunity = request.opportunityId() == null ? null : opportunityRepository
-                .findByIdAndArchivedFalse(request.opportunityId())
+                .findByIdAndOrganization_IdAndArchivedFalse(request.opportunityId(), organizationId)
                 .orElseThrow(() -> new OpportunityNotFoundException(request.opportunityId()));
         return new ParentRecords(company, contact, lead, opportunity);
     }
 
-    private Task findActiveTask(UUID id) {
-        return taskRepository.findByIdAndArchivedFalse(id).orElseThrow(() -> new TaskNotFoundException(id));
+    private Task findActiveTask(UUID organizationId, UUID id) {
+        return taskRepository.findByIdAndOrganization_IdAndArchivedFalse(id, organizationId)
+                .orElseThrow(() -> new TaskNotFoundException(id));
     }
 
     private record ParentRecords(Company company, Contact contact, Lead lead, Opportunity opportunity) {

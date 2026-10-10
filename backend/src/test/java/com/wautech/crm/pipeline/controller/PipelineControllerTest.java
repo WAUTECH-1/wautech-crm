@@ -1,9 +1,12 @@
 package com.wautech.crm.pipeline.controller;
 
+import com.wautech.crm.platform.tenant.AuthenticatedOrganizationContext;
+import com.wautech.crm.TestOrganization;
 import com.wautech.crm.opportunity.entity.OpportunityStage;
 import com.wautech.crm.pipeline.dto.PipelineResponse;
 import com.wautech.crm.pipeline.dto.PipelineStageSummary;
 import com.wautech.crm.pipeline.service.PipelineService;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -23,12 +26,18 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @WebMvcTest(PipelineController.class)
 class PipelineControllerTest {
+    @MockitoBean private AuthenticatedOrganizationContext organizationContext;
+    @BeforeEach
+    void organizationContextUsesTestOrganization() {
+        org.mockito.Mockito.when(organizationContext.requireOrganizationId()).thenReturn(com.wautech.crm.TestOrganization.ID);
+    }
+
     @Autowired private MockMvc mockMvc;
     @MockitoBean private PipelineService pipelineService;
 
     @Test
     void returnsPipelineStageCountsAndCurrencyTotals() throws Exception {
-        when(pipelineService.getPipeline(null, null)).thenReturn(new PipelineResponse(List.of(
+        when(pipelineService.getPipeline(TestOrganization.ID, null, null)).thenReturn(new PipelineResponse(List.of(
                 new PipelineStageSummary(OpportunityStage.QUALIFICATION, 2,
                         Map.of("USD", new BigDecimal("125.50"), "EUR", new BigDecimal("40"))))));
 
@@ -39,36 +48,36 @@ class PipelineControllerTest {
                 .andExpect(jsonPath("$.stages[0].totalsByCurrency.USD").value(125.5))
                 .andExpect(jsonPath("$.stages[0].totalsByCurrency.EUR").value(40));
 
-        verify(pipelineService).getPipeline(null, null);
+        verify(pipelineService).getPipeline(TestOrganization.ID, null, null);
     }
 
     @Test
     void forwardsCompanyAndContactFiltersTogether() throws Exception {
         UUID companyId = UUID.randomUUID();
         UUID contactId = UUID.randomUUID();
-        when(pipelineService.getPipeline(companyId, contactId)).thenReturn(new PipelineResponse(List.of()));
+        when(pipelineService.getPipeline(TestOrganization.ID, companyId, contactId)).thenReturn(new PipelineResponse(List.of()));
 
         mockMvc.perform(get("/api/pipeline").param("companyId", companyId.toString())
                         .param("contactId", contactId.toString()))
                 .andExpect(status().isOk());
 
-        verify(pipelineService).getPipeline(companyId, contactId);
+        verify(pipelineService).getPipeline(TestOrganization.ID, companyId, contactId);
     }
 
     @Test
     void forwardsCompanyAndContactFiltersIndividually() throws Exception {
         UUID companyId = UUID.randomUUID();
         UUID contactId = UUID.randomUUID();
-        when(pipelineService.getPipeline(companyId, null)).thenReturn(new PipelineResponse(List.of()));
-        when(pipelineService.getPipeline(null, contactId)).thenReturn(new PipelineResponse(List.of()));
+        when(pipelineService.getPipeline(TestOrganization.ID, companyId, null)).thenReturn(new PipelineResponse(List.of()));
+        when(pipelineService.getPipeline(TestOrganization.ID, null, contactId)).thenReturn(new PipelineResponse(List.of()));
 
         mockMvc.perform(get("/api/pipeline").param("companyId", companyId.toString()))
                 .andExpect(status().isOk());
         mockMvc.perform(get("/api/pipeline").param("contactId", contactId.toString()))
                 .andExpect(status().isOk());
 
-        verify(pipelineService).getPipeline(companyId, null);
-        verify(pipelineService).getPipeline(null, contactId);
+        verify(pipelineService).getPipeline(TestOrganization.ID, companyId, null);
+        verify(pipelineService).getPipeline(TestOrganization.ID, null, contactId);
     }
 
     @Test

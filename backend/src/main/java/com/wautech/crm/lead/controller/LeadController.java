@@ -5,6 +5,7 @@ import com.wautech.crm.lead.dto.LeadResponse;
 import com.wautech.crm.lead.dto.LeadStatusRequest;
 import com.wautech.crm.lead.entity.LeadStatus;
 import com.wautech.crm.lead.service.LeadService;
+import com.wautech.crm.platform.tenant.AuthenticatedOrganizationContext;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -26,15 +27,17 @@ import java.util.UUID;
 @RequestMapping("/api/leads")
 public class LeadController {
     private final LeadService leadService;
+    private final AuthenticatedOrganizationContext organizationContext;
 
-    public LeadController(LeadService leadService) {
+    public LeadController(LeadService leadService, AuthenticatedOrganizationContext organizationContext) {
         this.leadService = leadService;
+        this.organizationContext = organizationContext;
     }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public LeadResponse create(@Valid @RequestBody LeadRequest request) {
-        return leadService.create(request);
+        return leadService.create(organizationContext.requireOrganizationId(), request);
     }
 
     @GetMapping
@@ -44,28 +47,28 @@ public class LeadController {
                                          @RequestParam(required = false) String sortBy,
                                          @RequestParam(required = false) String sortDirection) {
         return search == null && sortBy == null && sortDirection == null
-                ? leadService.listActive(status, companyId)
-                : leadService.listActive(status, companyId, search, sortBy, sortDirection);
+                ? leadService.listActive(organizationContext.requireOrganizationId(), status, companyId)
+                : leadService.listActive(organizationContext.requireOrganizationId(), status, companyId, search, sortBy, sortDirection);
     }
 
     @GetMapping("/{id}")
     public LeadResponse getById(@PathVariable UUID id) {
-        return leadService.getById(id);
+        return leadService.getById(organizationContext.requireOrganizationId(), id);
     }
 
     @PutMapping("/{id}")
     public LeadResponse update(@PathVariable UUID id, @Valid @RequestBody LeadRequest request) {
-        return leadService.update(id, request);
+        return leadService.update(organizationContext.requireOrganizationId(), id, request);
     }
 
     @PatchMapping("/{id}/status")
     public LeadResponse changeStatus(@PathVariable UUID id, @Valid @RequestBody LeadStatusRequest request) {
-        return leadService.changeStatus(id, request.status());
+        return leadService.changeStatus(organizationContext.requireOrganizationId(), id, request.status());
     }
 
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void archive(@PathVariable UUID id) {
-        leadService.archive(id);
+        leadService.archive(organizationContext.requireOrganizationId(), id);
     }
 }

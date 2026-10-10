@@ -1,5 +1,7 @@
 package com.wautech.crm.pipeline.service;
 
+import com.wautech.crm.TestOrganization;
+import com.wautech.crm.organization.service.OrganizationService;
 import com.wautech.crm.opportunity.entity.Opportunity;
 import com.wautech.crm.opportunity.entity.OpportunityStage;
 import com.wautech.crm.opportunity.repository.OpportunityRepository;
@@ -22,15 +24,16 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class PipelineServiceTest {
     @Mock private OpportunityRepository opportunityRepository;
+    @Mock private OrganizationService organizationService;
     @InjectMocks private PipelineService pipelineService;
 
     @Test
     void returnsEveryStageIncludingStagesWithNoActiveOpportunities() {
-        when(opportunityRepository.findActive(null, null, null)).thenReturn(List.of(
+        when(opportunityRepository.findActive(TestOrganization.ID, null, null, null, null)).thenReturn(List.of(
                 opportunity("Qualification", OpportunityStage.QUALIFICATION, "100", "USD"),
                 opportunity("Proposal", OpportunityStage.PROPOSAL, "200", "USD")));
 
-        PipelineResponse response = pipelineService.getPipeline(null, null);
+        PipelineResponse response = pipelineService.getPipeline(TestOrganization.ID, null, null);
 
         assertEquals(List.of(OpportunityStage.values()), response.stages().stream()
                 .map(PipelineStageSummary::stage).toList());
@@ -44,27 +47,27 @@ class PipelineServiceTest {
 
     @Test
     void countsActiveOpportunitiesAndGroupsThemByCurrentStage() {
-        when(opportunityRepository.findActive(null, null, null)).thenReturn(List.of(
+        when(opportunityRepository.findActive(TestOrganization.ID, null, null, null, null)).thenReturn(List.of(
                 opportunity("A", OpportunityStage.QUALIFICATION, "10", "USD"),
                 opportunity("B", OpportunityStage.QUALIFICATION, "20", "USD"),
                 opportunity("C", OpportunityStage.NEGOTIATION, "30", "USD")));
 
-        PipelineResponse response = pipelineService.getPipeline(null, null);
+        PipelineResponse response = pipelineService.getPipeline(TestOrganization.ID, null, null);
 
         assertEquals(2, summary(response, OpportunityStage.QUALIFICATION).opportunityCount());
         assertEquals(1, summary(response, OpportunityStage.NEGOTIATION).opportunityCount());
         assertEquals(0, summary(response, OpportunityStage.CLOSED_LOST).opportunityCount());
-        verify(opportunityRepository).findActive(null, null, null);
+        verify(opportunityRepository).findActive(TestOrganization.ID, null, null, null, null);
     }
 
     @Test
     void sumsAmountsByCurrencyWithoutCombiningCurrencies() {
-        when(opportunityRepository.findActive(null, null, null)).thenReturn(List.of(
+        when(opportunityRepository.findActive(TestOrganization.ID, null, null, null, null)).thenReturn(List.of(
                 opportunity("USD 1", OpportunityStage.PROPOSAL, "125.25", "USD"),
                 opportunity("USD 2", OpportunityStage.PROPOSAL, "74.75", "USD"),
                 opportunity("EUR", OpportunityStage.PROPOSAL, "40000", "EUR")));
 
-        PipelineStageSummary proposal = summary(pipelineService.getPipeline(null, null), OpportunityStage.PROPOSAL);
+        PipelineStageSummary proposal = summary(pipelineService.getPipeline(TestOrganization.ID, null, null), OpportunityStage.PROPOSAL);
 
         assertEquals(new BigDecimal("200.00"), proposal.totalsByCurrency().get("USD"));
         assertEquals(new BigDecimal("40000"), proposal.totalsByCurrency().get("EUR"));
@@ -73,12 +76,12 @@ class PipelineServiceTest {
 
     @Test
     void countsOpportunitiesWithoutCompleteAmountAndCurrencyButDoesNotTotalThem() {
-        when(opportunityRepository.findActive(null, null, null)).thenReturn(List.of(
+        when(opportunityRepository.findActive(TestOrganization.ID, null, null, null, null)).thenReturn(List.of(
                 opportunity("No amount", OpportunityStage.QUALIFICATION, null, null),
                 opportunity("No currency", OpportunityStage.QUALIFICATION, "50", null),
                 opportunity("No amount but currency", OpportunityStage.QUALIFICATION, null, "USD")));
 
-        PipelineStageSummary qualification = summary(pipelineService.getPipeline(null, null), OpportunityStage.QUALIFICATION);
+        PipelineStageSummary qualification = summary(pipelineService.getPipeline(TestOrganization.ID, null, null), OpportunityStage.QUALIFICATION);
 
         assertEquals(3, qualification.opportunityCount());
         assertTrue(qualification.totalsByCurrency().isEmpty());
@@ -88,22 +91,22 @@ class PipelineServiceTest {
     void usesCompanyAndContactFiltersTogetherAndExcludesArchivedRecordsThroughActiveQuery() {
         UUID companyId = UUID.randomUUID();
         UUID contactId = UUID.randomUUID();
-        when(opportunityRepository.findActive(companyId, contactId, null)).thenReturn(List.of(
+        when(opportunityRepository.findActive(TestOrganization.ID, companyId, contactId, null, null)).thenReturn(List.of(
                 opportunity("Active", OpportunityStage.QUALIFICATION, "10", "USD")));
 
-        PipelineResponse response = pipelineService.getPipeline(companyId, contactId);
+        PipelineResponse response = pipelineService.getPipeline(TestOrganization.ID, companyId, contactId);
 
         assertEquals(1, summary(response, OpportunityStage.QUALIFICATION).opportunityCount());
-        verify(opportunityRepository).findActive(companyId, contactId, null);
+        verify(opportunityRepository).findActive(TestOrganization.ID, companyId, contactId, null, null);
     }
 
     @Test
     void reflectsAnOpportunitiesCurrentStage() {
         Opportunity opportunity = opportunity("Moving deal", OpportunityStage.QUALIFICATION, "15", "USD");
         opportunity.changeStage(OpportunityStage.NEEDS_ANALYSIS);
-        when(opportunityRepository.findActive(null, null, null)).thenReturn(List.of(opportunity));
+        when(opportunityRepository.findActive(TestOrganization.ID, null, null, null, null)).thenReturn(List.of(opportunity));
 
-        PipelineResponse response = pipelineService.getPipeline(null, null);
+        PipelineResponse response = pipelineService.getPipeline(TestOrganization.ID, null, null);
 
         assertEquals(0, summary(response, OpportunityStage.QUALIFICATION).opportunityCount());
         assertEquals(1, summary(response, OpportunityStage.NEEDS_ANALYSIS).opportunityCount());
@@ -114,7 +117,17 @@ class PipelineServiceTest {
     }
 
     private Opportunity opportunity(String name, OpportunityStage stage, String amount, String currency) {
-        return new Opportunity(name, null, amount == null ? null : new BigDecimal(amount), currency,
+        return new Opportunity(new com.wautech.crm.organization.entity.Organization("Test Organization"), name, null, amount == null ? null : new BigDecimal(amount), currency,
                 stage, null, null, null);
+    }
+
+    @Test
+    void pipelineQueryAlwaysUsesTheRequestedOrganizationScope() {
+        UUID otherOrganizationId = UUID.randomUUID();
+        when(opportunityRepository.findActive(otherOrganizationId, null, null, null, null)).thenReturn(List.of());
+
+        pipelineService.getPipeline(otherOrganizationId, null, null);
+
+        verify(opportunityRepository).findActive(otherOrganizationId, null, null, null, null);
     }
 }

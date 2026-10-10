@@ -1,5 +1,7 @@
 package com.wautech.crm.contact.service;
 
+import com.wautech.crm.TestOrganization;
+import com.wautech.crm.organization.service.OrganizationService;
 import com.wautech.crm.company.entity.Company;
 import com.wautech.crm.company.repository.CompanyRepository;
 import com.wautech.crm.company.service.CompanyNotFoundException;
@@ -29,6 +31,7 @@ class ContactServiceTest {
     @Mock
     private CompanyRepository companyRepository;
 
+    @Mock private OrganizationService organizationService;
     @InjectMocks
     private ContactService contactService;
 
@@ -36,10 +39,10 @@ class ContactServiceTest {
     void createTrimsNamesAndDefaultsStatus() {
         UUID companyId = UUID.randomUUID();
         Company company = company(companyId);
-        when(companyRepository.findByIdAndArchivedFalse(companyId)).thenReturn(Optional.of(company));
+        when(companyRepository.findByIdAndOrganization_IdAndArchivedFalse(companyId, TestOrganization.ID)).thenReturn(Optional.of(company));
         when(contactRepository.save(any(Contact.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        ContactResponse response = contactService.create(request(companyId, " Ada ", " Lovelace ", null, null));
+        ContactResponse response = contactService.create(TestOrganization.ID, request(companyId, " Ada ", " Lovelace ", null, null));
 
         assertEquals(companyId, response.companyId());
         assertEquals("Ada", response.firstName());
@@ -52,48 +55,48 @@ class ContactServiceTest {
     @Test
     void createRejectsMissingOrArchivedCompany() {
         UUID companyId = UUID.randomUUID();
-        when(companyRepository.findByIdAndArchivedFalse(companyId)).thenReturn(Optional.empty());
+        when(companyRepository.findByIdAndOrganization_IdAndArchivedFalse(companyId, TestOrganization.ID)).thenReturn(Optional.empty());
 
         assertThrows(CompanyNotFoundException.class,
-                () -> contactService.create(request(companyId, "Ada", "Lovelace", null, null)));
+                () -> contactService.create(TestOrganization.ID, request(companyId, "Ada", "Lovelace", null, null)));
         verifyNoInteractions(contactRepository);
     }
 
     @Test
     void listReturnsOnlyActiveContacts() {
         UUID companyId = UUID.randomUUID();
-        Contact contact = new Contact(company(companyId), "Ada", "Lovelace", null, null, null, "ACTIVE");
-        when(contactRepository.findAllByArchivedFalseOrderByCreatedAtDesc())
+        Contact contact = new Contact(new com.wautech.crm.organization.entity.Organization("Test Organization"), company(companyId), "Ada", "Lovelace", null, null, null, "ACTIVE");
+        when(contactRepository.findAllByOrganization_IdAndArchivedFalseOrderByCreatedAtDesc(TestOrganization.ID))
                 .thenReturn(List.of(contact));
 
-        List<ContactResponse> response = contactService.listActive(null);
+        List<ContactResponse> response = contactService.listActive(TestOrganization.ID, null);
 
         assertEquals(1, response.size());
         assertEquals("Ada", response.getFirst().firstName());
-        verify(contactRepository).findAllByArchivedFalseOrderByCreatedAtDesc();
+        verify(contactRepository).findAllByOrganization_IdAndArchivedFalseOrderByCreatedAtDesc(TestOrganization.ID);
     }
 
     @Test
     void listCanFilterByCompanyAndRejectsMissingCompany() {
         UUID companyId = UUID.randomUUID();
-        Company company = new Company("Acme", null, null, null, null, "ACTIVE");
-        when(companyRepository.findByIdAndArchivedFalse(companyId)).thenReturn(Optional.of(company));
-        when(contactRepository.findAllByCompany_IdAndArchivedFalseOrderByCreatedAtDesc(companyId)).thenReturn(List.of());
+        Company company = new Company(new com.wautech.crm.organization.entity.Organization("Test Organization"), "Acme", null, null, null, null, "ACTIVE");
+        when(companyRepository.findByIdAndOrganization_IdAndArchivedFalse(companyId, TestOrganization.ID)).thenReturn(Optional.of(company));
+        when(contactRepository.findAllByOrganization_IdAndCompany_IdAndArchivedFalseOrderByCreatedAtDesc(TestOrganization.ID, companyId)).thenReturn(List.of());
 
-        assertTrue(contactService.listActive(companyId).isEmpty());
-        verify(contactRepository).findAllByCompany_IdAndArchivedFalseOrderByCreatedAtDesc(companyId);
+        assertTrue(contactService.listActive(TestOrganization.ID, companyId).isEmpty());
+        verify(contactRepository).findAllByOrganization_IdAndCompany_IdAndArchivedFalseOrderByCreatedAtDesc(TestOrganization.ID, companyId);
 
         UUID missingCompanyId = UUID.randomUUID();
-        when(companyRepository.findByIdAndArchivedFalse(missingCompanyId)).thenReturn(Optional.empty());
-        assertThrows(CompanyNotFoundException.class, () -> contactService.listActive(missingCompanyId));
+        when(companyRepository.findByIdAndOrganization_IdAndArchivedFalse(missingCompanyId, TestOrganization.ID)).thenReturn(Optional.empty());
+        assertThrows(CompanyNotFoundException.class, () -> contactService.listActive(TestOrganization.ID, missingCompanyId));
     }
 
     @Test
     void getByIdRejectsMissingOrArchivedContact() {
         UUID id = UUID.randomUUID();
-        when(contactRepository.findByIdAndArchivedFalse(id)).thenReturn(Optional.empty());
+        when(contactRepository.findByIdAndOrganization_IdAndArchivedFalse(id, TestOrganization.ID)).thenReturn(Optional.empty());
 
-        assertThrows(ContactNotFoundException.class, () -> contactService.getById(id));
+        assertThrows(ContactNotFoundException.class, () -> contactService.getById(TestOrganization.ID, id));
     }
 
     @Test
@@ -101,12 +104,12 @@ class ContactServiceTest {
         UUID id = UUID.randomUUID();
         UUID companyId = UUID.randomUUID();
         Company company = company(companyId);
-        Contact contact = new Contact(company, "Old", "Name", null, null, null, "ACTIVE");
-        when(contactRepository.findByIdAndArchivedFalse(id)).thenReturn(Optional.of(contact));
-        when(companyRepository.findByIdAndArchivedFalse(companyId)).thenReturn(Optional.of(company));
+        Contact contact = new Contact(new com.wautech.crm.organization.entity.Organization("Test Organization"), company, "Old", "Name", null, null, null, "ACTIVE");
+        when(contactRepository.findByIdAndOrganization_IdAndArchivedFalse(id, TestOrganization.ID)).thenReturn(Optional.of(contact));
+        when(companyRepository.findByIdAndOrganization_IdAndArchivedFalse(companyId, TestOrganization.ID)).thenReturn(Optional.of(company));
         when(contactRepository.save(contact)).thenReturn(contact);
 
-        ContactResponse response = contactService.update(id,
+        ContactResponse response = contactService.update(TestOrganization.ID, id,
                 request(companyId, "New", "Name", "new@example.com", "PAUSED"));
 
         assertEquals("New", response.firstName());
@@ -118,22 +121,22 @@ class ContactServiceTest {
     @Test
     void updateRejectsArchivedContact() {
         UUID id = UUID.randomUUID();
-        when(contactRepository.findByIdAndArchivedFalse(id)).thenReturn(Optional.empty());
+        when(contactRepository.findByIdAndOrganization_IdAndArchivedFalse(id, TestOrganization.ID)).thenReturn(Optional.empty());
 
         assertThrows(ContactNotFoundException.class,
-                () -> contactService.update(id, request(UUID.randomUUID(), "Ada", "Lovelace", null, null)));
+                () -> contactService.update(TestOrganization.ID, id, request(UUID.randomUUID(), "Ada", "Lovelace", null, null)));
         verifyNoInteractions(companyRepository);
     }
 
     @Test
     void archiveSetsSoftDeleteFlag() {
         UUID id = UUID.randomUUID();
-        Contact contact = new Contact(new Company("Acme", null, null, null, null, "ACTIVE"),
+        Contact contact = new Contact(new com.wautech.crm.organization.entity.Organization("Test Organization"), new Company(new com.wautech.crm.organization.entity.Organization("Test Organization"), "Acme", null, null, null, null, "ACTIVE"),
                 "Ada", "Lovelace", null, null, null, "ACTIVE");
-        when(contactRepository.findByIdAndArchivedFalse(id)).thenReturn(Optional.of(contact));
+        when(contactRepository.findByIdAndOrganization_IdAndArchivedFalse(id, TestOrganization.ID)).thenReturn(Optional.of(contact));
         when(contactRepository.save(contact)).thenReturn(contact);
 
-        contactService.archive(id);
+        contactService.archive(TestOrganization.ID, id);
 
         assertTrue(contact.isArchived());
         assertNotNull(contact.getUpdatedAt());
@@ -148,5 +151,17 @@ class ContactServiceTest {
 
     private ContactRequest request(UUID companyId, String firstName, String lastName, String email, String status) {
         return new ContactRequest(companyId, firstName, lastName, email, null, null, status);
+    }
+
+    @Test
+    void anotherOrganizationCannotReadContactById() {
+        UUID contactId = UUID.randomUUID();
+        UUID otherOrganizationId = UUID.randomUUID();
+        when(contactRepository.findByIdAndOrganization_IdAndArchivedFalse(contactId, otherOrganizationId))
+                .thenReturn(Optional.empty());
+
+        assertThrows(ContactNotFoundException.class, () -> contactService.getById(otherOrganizationId, contactId));
+
+        verify(contactRepository).findByIdAndOrganization_IdAndArchivedFalse(contactId, otherOrganizationId);
     }
 }

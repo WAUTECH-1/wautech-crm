@@ -6,6 +6,7 @@ import com.wautech.crm.task.dto.TaskStatusRequest;
 import com.wautech.crm.task.entity.TaskPriority;
 import com.wautech.crm.task.entity.TaskStatus;
 import com.wautech.crm.task.service.TaskService;
+import com.wautech.crm.platform.tenant.AuthenticatedOrganizationContext;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -28,15 +29,17 @@ import java.util.UUID;
 @RequestMapping("/api/tasks")
 public class TaskController {
     private final TaskService taskService;
+    private final AuthenticatedOrganizationContext organizationContext;
 
-    public TaskController(TaskService taskService) {
+    public TaskController(TaskService taskService, AuthenticatedOrganizationContext organizationContext) {
         this.taskService = taskService;
+        this.organizationContext = organizationContext;
     }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public TaskResponse create(@Valid @RequestBody TaskRequest request) {
-        return taskService.create(request);
+        return taskService.create(organizationContext.requireOrganizationId(), request);
     }
 
     @GetMapping
@@ -53,30 +56,30 @@ public class TaskController {
                                          @RequestParam(required = false) String sortBy,
                                          @RequestParam(required = false) String sortDirection) {
         return search == null && sortBy == null && sortDirection == null
-                ? taskService.listActive(companyId, contactId, leadId, opportunityId, status, priority,
+                ? taskService.listActive(organizationContext.requireOrganizationId(), companyId, contactId, leadId, opportunityId, status, priority,
                 dueBefore, dueAfter, overdue)
-                : taskService.listActive(companyId, contactId, leadId, opportunityId, status, priority,
+                : taskService.listActive(organizationContext.requireOrganizationId(), companyId, contactId, leadId, opportunityId, status, priority,
                 dueBefore, dueAfter, overdue, search, sortBy, sortDirection);
     }
 
     @GetMapping("/{id}")
     public TaskResponse getById(@PathVariable UUID id) {
-        return taskService.getById(id);
+        return taskService.getById(organizationContext.requireOrganizationId(), id);
     }
 
     @PutMapping("/{id}")
     public TaskResponse update(@PathVariable UUID id, @Valid @RequestBody TaskRequest request) {
-        return taskService.update(id, request);
+        return taskService.update(organizationContext.requireOrganizationId(), id, request);
     }
 
     @PatchMapping("/{id}/status")
     public TaskResponse changeStatus(@PathVariable UUID id, @Valid @RequestBody TaskStatusRequest request) {
-        return taskService.changeStatus(id, request.status());
+        return taskService.changeStatus(organizationContext.requireOrganizationId(), id, request.status());
     }
 
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void archive(@PathVariable UUID id) {
-        taskService.archive(id);
+        taskService.archive(organizationContext.requireOrganizationId(), id);
     }
 }

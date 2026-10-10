@@ -1,5 +1,7 @@
 package com.wautech.crm.lead.service;
 
+import com.wautech.crm.TestOrganization;
+import com.wautech.crm.organization.service.OrganizationService;
 import com.wautech.crm.company.entity.Company;
 import com.wautech.crm.company.repository.CompanyRepository;
 import com.wautech.crm.company.service.CompanyNotFoundException;
@@ -29,13 +31,14 @@ import static org.mockito.Mockito.*;
 class LeadServiceTest {
     @Mock private LeadRepository leadRepository;
     @Mock private CompanyRepository companyRepository;
+    @Mock private OrganizationService organizationService;
     @InjectMocks private LeadService leadService;
 
     @Test
     void createsLeadWithoutCompanyAndDefaultsToNew() {
         when(leadRepository.save(any(Lead.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        LeadResponse response = leadService.create(request(null));
+        LeadResponse response = leadService.create(TestOrganization.ID, request(null));
 
         assertNull(response.companyId());
         assertEquals(LeadStatus.NEW, response.status());
@@ -46,10 +49,10 @@ class LeadServiceTest {
     void createsLeadWithActiveCompany() {
         UUID companyId = UUID.randomUUID();
         Company company = company(companyId);
-        when(companyRepository.findByIdAndArchivedFalse(companyId)).thenReturn(Optional.of(company));
+        when(companyRepository.findByIdAndOrganization_IdAndArchivedFalse(companyId, TestOrganization.ID)).thenReturn(Optional.of(company));
         when(leadRepository.save(any(Lead.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        LeadResponse response = leadService.create(request(companyId));
+        LeadResponse response = leadService.create(TestOrganization.ID, request(companyId));
 
         assertEquals(companyId, response.companyId());
         assertEquals(LeadStatus.NEW, response.status());
@@ -58,39 +61,39 @@ class LeadServiceTest {
     @Test
     void rejectsNonexistentCompany() {
         UUID companyId = UUID.randomUUID();
-        when(companyRepository.findByIdAndArchivedFalse(companyId)).thenReturn(Optional.empty());
+        when(companyRepository.findByIdAndOrganization_IdAndArchivedFalse(companyId, TestOrganization.ID)).thenReturn(Optional.empty());
 
-        assertThrows(CompanyNotFoundException.class, () -> leadService.create(request(companyId)));
+        assertThrows(CompanyNotFoundException.class, () -> leadService.create(TestOrganization.ID, request(companyId)));
         verify(leadRepository, never()).save(any());
     }
 
     @Test
     void rejectsArchivedCompanyAssignment() {
         UUID archivedCompanyId = UUID.randomUUID();
-        when(companyRepository.findByIdAndArchivedFalse(archivedCompanyId)).thenReturn(Optional.empty());
+        when(companyRepository.findByIdAndOrganization_IdAndArchivedFalse(archivedCompanyId, TestOrganization.ID)).thenReturn(Optional.empty());
 
-        assertThrows(CompanyNotFoundException.class, () -> leadService.create(request(archivedCompanyId)));
+        assertThrows(CompanyNotFoundException.class, () -> leadService.create(TestOrganization.ID, request(archivedCompanyId)));
         verify(leadRepository, never()).save(any());
     }
 
     @Test
     void listUsesActiveRepositoryMethodsForAllFilterCombinations() {
         UUID companyId = UUID.randomUUID();
-        when(leadRepository.findAllByArchivedFalseOrderByCreatedAtDesc()).thenReturn(List.of());
-        when(leadRepository.findAllByArchivedFalseAndStatusOrderByCreatedAtDesc(LeadStatus.NEW)).thenReturn(List.of());
-        when(leadRepository.findAllByCompany_IdAndArchivedFalseOrderByCreatedAtDesc(companyId)).thenReturn(List.of());
-        when(leadRepository.findAllByCompany_IdAndArchivedFalseAndStatusOrderByCreatedAtDesc(companyId, LeadStatus.NEW))
+        when(leadRepository.findAllByOrganization_IdAndArchivedFalseOrderByCreatedAtDesc(TestOrganization.ID)).thenReturn(List.of());
+        when(leadRepository.findAllByOrganization_IdAndArchivedFalseAndStatusOrderByCreatedAtDesc(TestOrganization.ID, LeadStatus.NEW)).thenReturn(List.of());
+        when(leadRepository.findAllByOrganization_IdAndCompany_IdAndArchivedFalseOrderByCreatedAtDesc(TestOrganization.ID, companyId)).thenReturn(List.of());
+        when(leadRepository.findAllByOrganization_IdAndCompany_IdAndArchivedFalseAndStatusOrderByCreatedAtDesc(TestOrganization.ID, companyId, LeadStatus.NEW))
                 .thenReturn(List.of());
 
-        assertTrue(leadService.listActive(null, null).isEmpty());
-        assertTrue(leadService.listActive(LeadStatus.NEW, null).isEmpty());
-        assertTrue(leadService.listActive(null, companyId).isEmpty());
-        assertTrue(leadService.listActive(LeadStatus.NEW, companyId).isEmpty());
+        assertTrue(leadService.listActive(TestOrganization.ID, null, null).isEmpty());
+        assertTrue(leadService.listActive(TestOrganization.ID, LeadStatus.NEW, null).isEmpty());
+        assertTrue(leadService.listActive(TestOrganization.ID, null, companyId).isEmpty());
+        assertTrue(leadService.listActive(TestOrganization.ID, LeadStatus.NEW, companyId).isEmpty());
 
-        verify(leadRepository).findAllByArchivedFalseOrderByCreatedAtDesc();
-        verify(leadRepository).findAllByArchivedFalseAndStatusOrderByCreatedAtDesc(LeadStatus.NEW);
-        verify(leadRepository).findAllByCompany_IdAndArchivedFalseOrderByCreatedAtDesc(companyId);
-        verify(leadRepository).findAllByCompany_IdAndArchivedFalseAndStatusOrderByCreatedAtDesc(companyId, LeadStatus.NEW);
+        verify(leadRepository).findAllByOrganization_IdAndArchivedFalseOrderByCreatedAtDesc(TestOrganization.ID);
+        verify(leadRepository).findAllByOrganization_IdAndArchivedFalseAndStatusOrderByCreatedAtDesc(TestOrganization.ID, LeadStatus.NEW);
+        verify(leadRepository).findAllByOrganization_IdAndCompany_IdAndArchivedFalseOrderByCreatedAtDesc(TestOrganization.ID, companyId);
+        verify(leadRepository).findAllByOrganization_IdAndCompany_IdAndArchivedFalseAndStatusOrderByCreatedAtDesc(TestOrganization.ID, companyId, LeadStatus.NEW);
     }
 
     @ParameterizedTest
@@ -121,11 +124,11 @@ class LeadServiceTest {
     @Test
     void putStyleUpdateCannotChangeLeadStatus() {
         UUID id = UUID.randomUUID();
-        Lead lead = new Lead(null, "Old", "Name", null, null, null);
-        when(leadRepository.findByIdAndArchivedFalse(id)).thenReturn(Optional.of(lead));
+        Lead lead = new Lead(new com.wautech.crm.organization.entity.Organization("Test Organization"), null, "Old", "Name", null, null, null);
+        when(leadRepository.findByIdAndOrganization_IdAndArchivedFalse(id, TestOrganization.ID)).thenReturn(Optional.of(lead));
         when(leadRepository.save(lead)).thenReturn(lead);
 
-        LeadResponse response = leadService.update(id, request(null));
+        LeadResponse response = leadService.update(TestOrganization.ID, id, request(null));
 
         assertEquals(LeadStatus.NEW, response.status());
     }
@@ -133,20 +136,20 @@ class LeadServiceTest {
     @Test
     void missingOrArchivedLeadReturnsNotFound() {
         UUID id = UUID.randomUUID();
-        when(leadRepository.findByIdAndArchivedFalse(id)).thenReturn(Optional.empty());
+        when(leadRepository.findByIdAndOrganization_IdAndArchivedFalse(id, TestOrganization.ID)).thenReturn(Optional.empty());
 
-        assertThrows(LeadNotFoundException.class, () -> leadService.getById(id));
-        assertThrows(LeadNotFoundException.class, () -> leadService.archive(id));
+        assertThrows(LeadNotFoundException.class, () -> leadService.getById(TestOrganization.ID, id));
+        assertThrows(LeadNotFoundException.class, () -> leadService.archive(TestOrganization.ID, id));
     }
 
     @Test
     void archiveSetsSoftDeleteFlag() {
         UUID id = UUID.randomUUID();
-        Lead lead = new Lead(null, "Ada", "Lovelace", null, null, null);
-        when(leadRepository.findByIdAndArchivedFalse(id)).thenReturn(Optional.of(lead));
+        Lead lead = new Lead(new com.wautech.crm.organization.entity.Organization("Test Organization"), null, "Ada", "Lovelace", null, null, null);
+        when(leadRepository.findByIdAndOrganization_IdAndArchivedFalse(id, TestOrganization.ID)).thenReturn(Optional.of(lead));
         when(leadRepository.save(lead)).thenReturn(lead);
 
-        leadService.archive(id);
+        leadService.archive(TestOrganization.ID, id);
 
         assertTrue(lead.isArchived());
         assertNotNull(lead.getUpdatedAt());
@@ -154,16 +157,16 @@ class LeadServiceTest {
 
     private void assertTransition(LeadStatus current, LeadStatus next) {
         UUID id = UUID.randomUUID();
-        Lead lead = new Lead(null, "Ada", "Lovelace", null, null, null);
+        Lead lead = new Lead(new com.wautech.crm.organization.entity.Organization("Test Organization"), null, "Ada", "Lovelace", null, null, null);
         for (int i = 0; i < (current == LeadStatus.CONTACTED ? 1 : 0); i++) lead.changeStatus(LeadStatus.CONTACTED);
-        when(leadRepository.findByIdAndArchivedFalse(id)).thenReturn(Optional.of(lead));
+        when(leadRepository.findByIdAndOrganization_IdAndArchivedFalse(id, TestOrganization.ID)).thenReturn(Optional.of(lead));
         when(leadRepository.save(lead)).thenReturn(lead);
 
-        assertEquals(next, leadService.changeStatus(id, next).status());
+        assertEquals(next, leadService.changeStatus(TestOrganization.ID, id, next).status());
     }
 
     private void assertRejectedTransition(LeadStatus current, LeadStatus next) {
-        Lead lead = new Lead(null, "Ada", "Lovelace", null, null, null);
+        Lead lead = new Lead(new com.wautech.crm.organization.entity.Organization("Test Organization"), null, "Ada", "Lovelace", null, null, null);
         if (current == LeadStatus.CONTACTED) lead.changeStatus(LeadStatus.CONTACTED);
         else if (current == LeadStatus.QUALIFIED || current == LeadStatus.DISQUALIFIED) lead.changeStatus(current);
         assertThrows(IllegalLeadStatusTransitionException.class, () -> lead.changeStatus(next));
@@ -177,5 +180,17 @@ class LeadServiceTest {
 
     private LeadRequest request(UUID companyId) {
         return new LeadRequest(companyId, " Ada ", " Lovelace ", "ada@example.com", null, null);
+    }
+
+    @Test
+    void anotherOrganizationCannotReadLeadById() {
+        UUID leadId = UUID.randomUUID();
+        UUID otherOrganizationId = UUID.randomUUID();
+        when(leadRepository.findByIdAndOrganization_IdAndArchivedFalse(leadId, otherOrganizationId))
+                .thenReturn(Optional.empty());
+
+        assertThrows(LeadNotFoundException.class, () -> leadService.getById(otherOrganizationId, leadId));
+
+        verify(leadRepository).findByIdAndOrganization_IdAndArchivedFalse(leadId, otherOrganizationId);
     }
 }

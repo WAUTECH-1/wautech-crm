@@ -1,5 +1,7 @@
 package com.wautech.crm.opportunity.controller;
 
+import com.wautech.crm.platform.tenant.AuthenticatedOrganizationContext;
+import com.wautech.crm.TestOrganization;
 import com.wautech.crm.company.service.CompanyNotFoundException;
 import com.wautech.crm.contact.service.ContactNotFoundException;
 import com.wautech.crm.opportunity.dto.OpportunityResponse;
@@ -7,6 +9,7 @@ import com.wautech.crm.opportunity.entity.OpportunityStage;
 import com.wautech.crm.opportunity.service.OpportunityContactCompanyMismatchException;
 import com.wautech.crm.opportunity.service.OpportunityNotFoundException;
 import com.wautech.crm.opportunity.service.OpportunityService;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -26,6 +29,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @WebMvcTest(OpportunityController.class)
 class OpportunityControllerTest {
+    @MockitoBean private AuthenticatedOrganizationContext organizationContext;
+    @BeforeEach
+    void organizationContextUsesTestOrganization() {
+        org.mockito.Mockito.when(organizationContext.requireOrganizationId()).thenReturn(com.wautech.crm.TestOrganization.ID);
+    }
+
     @Autowired private MockMvc mockMvc;
     @MockitoBean private OpportunityService opportunityService;
 
@@ -33,7 +42,7 @@ class OpportunityControllerTest {
     void createsOpportunity() throws Exception {
         UUID id = UUID.randomUUID();
         UUID companyId = UUID.randomUUID();
-        when(opportunityService.create(any())).thenReturn(response(id, companyId, null));
+        when(opportunityService.create(eq(TestOrganization.ID), any())).thenReturn(response(id, companyId, null));
 
         mockMvc.perform(post("/api/opportunities").contentType(MediaType.APPLICATION_JSON)
                         .content(requestJson(companyId, null, "Acme renewal", null, null)))
@@ -71,19 +80,19 @@ class OpportunityControllerTest {
     void companyAndContactErrorsUseCentralizedProblemResponses() throws Exception {
         UUID companyId = UUID.randomUUID();
         UUID contactId = UUID.randomUUID();
-        when(opportunityService.create(any())).thenThrow(new CompanyNotFoundException(companyId));
+        when(opportunityService.create(eq(TestOrganization.ID), any())).thenThrow(new CompanyNotFoundException(companyId));
         mockMvc.perform(post("/api/opportunities").contentType(MediaType.APPLICATION_JSON)
                         .content(requestJson(companyId, null, "Deal", null, null)))
                 .andExpect(status().isNotFound());
 
         reset(opportunityService);
-        when(opportunityService.create(any())).thenThrow(new ContactNotFoundException(contactId));
+        when(opportunityService.create(eq(TestOrganization.ID), any())).thenThrow(new ContactNotFoundException(contactId));
         mockMvc.perform(post("/api/opportunities").contentType(MediaType.APPLICATION_JSON)
                         .content(requestJson(companyId, contactId, "Deal", null, null)))
                 .andExpect(status().isNotFound());
 
         reset(opportunityService);
-        when(opportunityService.create(any())).thenThrow(new OpportunityContactCompanyMismatchException(contactId, companyId));
+        when(opportunityService.create(eq(TestOrganization.ID), any())).thenThrow(new OpportunityContactCompanyMismatchException(contactId, companyId));
         mockMvc.perform(post("/api/opportunities").contentType(MediaType.APPLICATION_JSON)
                         .content(requestJson(companyId, contactId, "Deal", null, null)))
                 .andExpect(status().isBadRequest());
@@ -93,25 +102,25 @@ class OpportunityControllerTest {
     void listSupportsCompanyContactAndStageFilters() throws Exception {
         UUID companyId = UUID.randomUUID();
         UUID contactId = UUID.randomUUID();
-        when(opportunityService.listActive(companyId, contactId, OpportunityStage.PROPOSAL)).thenReturn(List.of());
+        when(opportunityService.listActive(TestOrganization.ID, companyId, contactId, OpportunityStage.PROPOSAL)).thenReturn(List.of());
 
         mockMvc.perform(get("/api/opportunities").param("companyId", companyId.toString())
                         .param("contactId", contactId.toString()).param("stage", "PROPOSAL"))
                 .andExpect(status().isOk());
 
-        verify(opportunityService).listActive(companyId, contactId, OpportunityStage.PROPOSAL);
+        verify(opportunityService).listActive(TestOrganization.ID, companyId, contactId, OpportunityStage.PROPOSAL);
     }
 
     @Test
     void listForwardsSearchAndSortAlongsideExistingFilters() throws Exception {
         UUID companyId = UUID.randomUUID();
-        when(opportunityService.listActive(companyId, null, OpportunityStage.PROPOSAL,
+        when(opportunityService.listActive(TestOrganization.ID, companyId, null, OpportunityStage.PROPOSAL,
                 "renewal", "name", "desc")).thenReturn(List.of());
         mockMvc.perform(get("/api/opportunities").param("companyId", companyId.toString())
                         .param("stage", "PROPOSAL").param("search", "renewal")
                         .param("sortBy", "name").param("sortDirection", "desc"))
                 .andExpect(status().isOk());
-        verify(opportunityService).listActive(companyId, null, OpportunityStage.PROPOSAL,
+        verify(opportunityService).listActive(TestOrganization.ID, companyId, null, OpportunityStage.PROPOSAL,
                 "renewal", "name", "desc");
     }
 
@@ -127,7 +136,7 @@ class OpportunityControllerTest {
     @Test
     void getMissingOrArchivedOpportunityReturnsNotFound() throws Exception {
         UUID id = UUID.randomUUID();
-        when(opportunityService.getById(id)).thenThrow(new OpportunityNotFoundException(id));
+        when(opportunityService.getById(TestOrganization.ID, id)).thenThrow(new OpportunityNotFoundException(id));
         mockMvc.perform(get("/api/opportunities/{id}", id))
                 .andExpect(status().isNotFound());
     }
@@ -136,12 +145,12 @@ class OpportunityControllerTest {
     void updateAndChangeStageReturnOpportunity() throws Exception {
         UUID id = UUID.randomUUID();
         UUID companyId = UUID.randomUUID();
-        when(opportunityService.update(eq(id), any())).thenReturn(response(id, companyId, null));
+        when(opportunityService.update(eq(TestOrganization.ID), eq(id), any())).thenReturn(response(id, companyId, null));
         mockMvc.perform(put("/api/opportunities/{id}", id).contentType(MediaType.APPLICATION_JSON)
                         .content(requestJson(companyId, null, "Deal", null, null)))
                 .andExpect(status().isOk());
 
-        when(opportunityService.changeStage(id, OpportunityStage.NEEDS_ANALYSIS))
+        when(opportunityService.changeStage(TestOrganization.ID, id, OpportunityStage.NEEDS_ANALYSIS))
                 .thenReturn(response(id, companyId, null, OpportunityStage.NEEDS_ANALYSIS));
         mockMvc.perform(patch("/api/opportunities/{id}/stage", id).contentType(MediaType.APPLICATION_JSON)
                         .content("{\"stage\":\"NEEDS_ANALYSIS\"}"))
