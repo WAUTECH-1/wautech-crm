@@ -24,6 +24,8 @@ import com.wautech.crm.identity.service.DuplicateUserEmailException;
 import com.wautech.crm.identity.service.DisabledUserException;
 import com.wautech.crm.identity.service.InvalidCredentialsException;
 import com.wautech.crm.platform.tenant.OrganizationContextUnavailableException;
+import com.wautech.crm.notification.service.NotificationNotFoundException;
+import com.wautech.crm.notification.service.InvalidNotificationPageException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -39,7 +41,8 @@ public class ApiExceptionHandler {
         return ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, exception.getMessage());
     }
 
-    @ExceptionHandler({UserNotFoundException.class, OrganizationMembershipNotFoundException.class})
+    @ExceptionHandler({UserNotFoundException.class, OrganizationMembershipNotFoundException.class,
+            NotificationNotFoundException.class})
     ProblemDetail handleIdentityNotFound(RuntimeException exception) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, exception.getMessage());
     }
@@ -127,7 +130,7 @@ public class ApiExceptionHandler {
 
     @ExceptionHandler({MethodArgumentNotValidException.class, MethodArgumentTypeMismatchException.class,
             HttpMessageNotReadableException.class,
-            InvalidListQueryException.class, InvalidAuditQueryException.class})
+            InvalidListQueryException.class, InvalidAuditQueryException.class, InvalidNotificationPageException.class})
     ProblemDetail handleInvalidRequest(Exception exception) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, "Request contains invalid input");
     }

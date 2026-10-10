@@ -8,6 +8,7 @@ import com.wautech.crm.organization.entity.MembershipStatus;
 import com.wautech.crm.organization.entity.OrganizationMembership;
 import com.wautech.crm.organization.entity.OrganizationRole;
 import com.wautech.crm.organization.repository.OrganizationMembershipRepository;
+import com.wautech.crm.notification.service.NotificationEventWriter;
 import com.wautech.crm.platform.security.CrmAuthorization;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
@@ -23,13 +24,16 @@ public class OrganizationMembershipService {
     private final OrganizationService organizationService;
     private final UserService userService;
     private final CrmAuthorization authorization;
+    private final NotificationEventWriter notificationEventWriter;
 
     public OrganizationMembershipService(OrganizationMembershipRepository membershipRepository,
-            OrganizationService organizationService, UserService userService, CrmAuthorization authorization) {
+            OrganizationService organizationService, UserService userService, CrmAuthorization authorization,
+            NotificationEventWriter notificationEventWriter) {
         this.membershipRepository = membershipRepository;
         this.organizationService = organizationService;
         this.userService = userService;
         this.authorization = authorization;
+        this.notificationEventWriter = notificationEventWriter;
     }
 
     @PreAuthorize("@crmAuthorization.canManageOrganization(#p0)")
@@ -87,7 +91,9 @@ public class OrganizationMembershipService {
         }
         if (nextStatus == MembershipStatus.ACTIVE) userService.requireEnabledUser(membership.getUser().getId());
         membership.transitionTo(nextStatus);
-        return OrganizationMembershipResponse.from(membershipRepository.save(membership));
+        OrganizationMembership saved = membershipRepository.save(membership);
+        if (nextStatus == MembershipStatus.ACTIVE) notificationEventWriter.membershipActivated(saved);
+        return OrganizationMembershipResponse.from(saved);
     }
 
     @PreAuthorize("@crmAuthorization.canManageOrganization(#p0)")
@@ -110,7 +116,9 @@ public class OrganizationMembershipService {
             throw new LastOrganizationOwnerException(organizationId);
         }
         membership.changeRole(nextRole);
-        return OrganizationMembershipResponse.from(membershipRepository.save(membership));
+        OrganizationMembership saved = membershipRepository.save(membership);
+        notificationEventWriter.membershipRoleChanged(saved);
+        return OrganizationMembershipResponse.from(saved);
     }
 
     @PreAuthorize("@crmAuthorization.isOwner(#p0)")
@@ -129,8 +137,11 @@ public class OrganizationMembershipService {
         userService.requireEnabledUser(target.getUser().getId());
         target.changeRole(OrganizationRole.OWNER);
         owner.changeRole(OrganizationRole.ADMIN);
-        membershipRepository.save(owner);
-        return OrganizationMembershipResponse.from(membershipRepository.save(target));
+        OrganizationMembership savedOwner = membershipRepository.save(owner);
+        OrganizationMembership savedTarget = membershipRepository.save(target);
+        notificationEventWriter.membershipRoleChanged(savedOwner);
+        notificationEventWriter.membershipRoleChanged(savedTarget);
+        return OrganizationMembershipResponse.from(savedTarget);
     }
 
     @Transactional(readOnly = true)

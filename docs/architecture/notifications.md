@@ -1,0 +1,9 @@
+# Notifications
+
+Feature #16 provides recipient-specific in-app notifications in `crm.notification`. The organization/recipient pair is constrained by a foreign key to an organization membership. API queries also scope by both the trusted active organization and the authenticated user's ID; the organization comes from the tenant filter and is never accepted from request parameters. Any active CRM role may read its own notifications. Disabled users, inactive memberships, and archived organizations fail the established authentication/authorization checks.
+
+The initial event set is intentionally small: organization membership activation and active-member role changes. The membership workflow identifies the recipient directly. Notification writes join the membership transaction, so a failed notification insert rolls the membership change back; there is no asynchronous delivery path or outbox for this database-only channel. A deduplication key is unique per organization and recipient.
+
+Task assignment notifications are deferred because `Task` has no assignee relationship. Opportunity stage notifications are deferred because `Opportunity` has no owner/recipient relationship. Due-soon and overdue notifications are deferred because no scheduler or notification timing policy exists. Membership administration currently remains service-only, so notifications are generated only when those internal lifecycle operations run. No external email/SMS provider, preferences, generic event bus, or public notification creation endpoint is included.
+
+`GET /api/notifications` is ordered by creation time and UUID descending and is limited to 100 items per page. Read and read-all operations only change `read_at`, and unread counts are scoped to the same recipient and organization. The response includes only the notification text and optional target reference, never internal database entities or sensitive metadata.
