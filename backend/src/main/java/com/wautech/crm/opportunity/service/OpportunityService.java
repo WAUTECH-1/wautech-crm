@@ -11,6 +11,8 @@ import com.wautech.crm.opportunity.dto.OpportunityResponse;
 import com.wautech.crm.opportunity.entity.Opportunity;
 import com.wautech.crm.opportunity.entity.OpportunityStage;
 import com.wautech.crm.opportunity.repository.OpportunityRepository;
+import com.wautech.crm.organization.entity.Organization;
+import com.wautech.crm.organization.service.OrganizationService;
 import com.wautech.crm.platform.search.ListSort;
 import com.wautech.crm.platform.search.SearchText;
 import org.springframework.stereotype.Service;
@@ -28,70 +30,80 @@ public class OpportunityService {
     private final OpportunityRepository opportunityRepository;
     private final CompanyRepository companyRepository;
     private final ContactRepository contactRepository;
+    private final OrganizationService organizationService;
 
     public OpportunityService(OpportunityRepository opportunityRepository, CompanyRepository companyRepository,
-                              ContactRepository contactRepository) {
+                              ContactRepository contactRepository, OrganizationService organizationService) {
         this.opportunityRepository = opportunityRepository;
         this.companyRepository = companyRepository;
         this.contactRepository = contactRepository;
+        this.organizationService = organizationService;
     }
 
-    public OpportunityResponse create(OpportunityRequest request) {
-        Company company = findActiveCompany(request.companyId());
-        Contact contact = findContactForCompany(request.contactId(), company);
-        Opportunity opportunity = new Opportunity(request.name().trim(), request.description(), request.amount(),
+    public OpportunityResponse create(UUID organizationId, OpportunityRequest request) {
+        Organization organization = organizationService.requireActiveOrganization(organizationId);
+        Company company = findActiveCompany(organizationId, request.companyId());
+        Contact contact = findContactForCompany(organizationId, request.contactId(), company);
+        Opportunity opportunity = new Opportunity(organization, request.name().trim(), request.description(), request.amount(),
                 request.currency(), request.stage(), request.expectedCloseDate(), company, contact);
         return OpportunityResponse.from(opportunityRepository.save(opportunity));
     }
 
     @Transactional(readOnly = true)
-    public List<OpportunityResponse> listActive(UUID companyId, UUID contactId, OpportunityStage stage) {
-        return opportunityRepository.findActive(companyId, contactId, stage)
+    public List<OpportunityResponse> listActive(UUID organizationId, UUID companyId, UUID contactId, OpportunityStage stage) {
+        organizationService.requireActiveOrganization(organizationId);
+        return opportunityRepository.findActive(organizationId, companyId, contactId, stage, null)
                 .stream().map(OpportunityResponse::from).toList();
     }
 
     @Transactional(readOnly = true)
-    public List<OpportunityResponse> listActive(UUID companyId, UUID contactId, OpportunityStage stage,
+    public List<OpportunityResponse> listActive(UUID organizationId, UUID companyId, UUID contactId, OpportunityStage stage,
                                                 String search, String sortBy, String sortDirection) {
-        List<Opportunity> rows = new ArrayList<>(opportunityRepository.findActive(companyId, contactId, stage,
+        organizationService.requireActiveOrganization(organizationId);
+        List<Opportunity> rows = new ArrayList<>(opportunityRepository.findActive(organizationId, companyId, contactId, stage,
                 SearchText.containsPattern(search)));
         ListSort.apply(rows, sortBy, sortDirection, SORT_FIELDS, Opportunity::getId);
         return rows.stream().map(OpportunityResponse::from).toList();
     }
 
     @Transactional(readOnly = true)
-    public OpportunityResponse getById(UUID id) {
-        return OpportunityResponse.from(findActiveOpportunity(id));
+    public OpportunityResponse getById(UUID organizationId, UUID id) {
+        organizationService.requireActiveOrganization(organizationId);
+        return OpportunityResponse.from(findActiveOpportunity(organizationId, id));
     }
 
-    public OpportunityResponse update(UUID id, OpportunityRequest request) {
-        Opportunity opportunity = findActiveOpportunity(id);
-        Company company = findActiveCompany(request.companyId());
-        Contact contact = findContactForCompany(request.contactId(), company);
+    public OpportunityResponse update(UUID organizationId, UUID id, OpportunityRequest request) {
+        organizationService.requireActiveOrganization(organizationId);
+        Opportunity opportunity = findActiveOpportunity(organizationId, id);
+        Company company = findActiveCompany(organizationId, request.companyId());
+        Contact contact = findContactForCompany(organizationId, request.contactId(), company);
         opportunity.update(request.name().trim(), request.description(), request.amount(), request.currency(),
                 request.expectedCloseDate(), company, contact);
         return OpportunityResponse.from(opportunityRepository.save(opportunity));
     }
 
-    public OpportunityResponse changeStage(UUID id, OpportunityStage stage) {
-        Opportunity opportunity = findActiveOpportunity(id);
+    public OpportunityResponse changeStage(UUID organizationId, UUID id, OpportunityStage stage) {
+        organizationService.requireActiveOrganization(organizationId);
+        Opportunity opportunity = findActiveOpportunity(organizationId, id);
         opportunity.changeStage(stage);
         return OpportunityResponse.from(opportunityRepository.save(opportunity));
     }
 
-    public void archive(UUID id) {
-        Opportunity opportunity = findActiveOpportunity(id);
+    public void archive(UUID organizationId, UUID id) {
+        organizationService.requireActiveOrganization(organizationId);
+        Opportunity opportunity = findActiveOpportunity(organizationId, id);
         opportunity.archive();
         opportunityRepository.save(opportunity);
     }
 
-    private Company findActiveCompany(UUID id) {
-        return companyRepository.findByIdAndArchivedFalse(id).orElseThrow(() -> new CompanyNotFoundException(id));
+    private Company findActiveCompany(UUID organizationId, UUID id) {
+        return companyRepository.findByIdAndOrganization_IdAndArchivedFalse(id, organizationId)
+                .orElseThrow(() -> new CompanyNotFoundException(id));
     }
 
-    private Contact findContactForCompany(UUID contactId, Company company) {
+    private Contact findContactForCompany(UUID organizationId, UUID contactId, Company company) {
         if (contactId == null) return null;
-        Contact contact = contactRepository.findByIdAndArchivedFalse(contactId)
+        Contact contact = contactRepository.findByIdAndOrganization_IdAndArchivedFalse(contactId, organizationId)
                 .orElseThrow(() -> new ContactNotFoundException(contactId));
         if (!contact.getCompany().getId().equals(company.getId())) {
             throw new OpportunityContactCompanyMismatchException(contactId, company.getId());
@@ -99,8 +111,8 @@ public class OpportunityService {
         return contact;
     }
 
-    private Opportunity findActiveOpportunity(UUID id) {
-        return opportunityRepository.findByIdAndArchivedFalse(id)
+    private Opportunity findActiveOpportunity(UUID organizationId, UUID id) {
+        return opportunityRepository.findByIdAndOrganization_IdAndArchivedFalse(id, organizationId)
                 .orElseThrow(() -> new OpportunityNotFoundException(id));
     }
 

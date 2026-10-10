@@ -1,11 +1,14 @@
 package com.wautech.crm.lead.controller;
 
+import com.wautech.crm.platform.tenant.AuthenticatedOrganizationContext;
+import com.wautech.crm.TestOrganization;
 import com.wautech.crm.company.service.CompanyNotFoundException;
 import com.wautech.crm.lead.dto.LeadResponse;
 import com.wautech.crm.lead.entity.IllegalLeadStatusTransitionException;
 import com.wautech.crm.lead.entity.LeadStatus;
 import com.wautech.crm.lead.service.LeadNotFoundException;
 import com.wautech.crm.lead.service.LeadService;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -25,13 +28,19 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @WebMvcTest(LeadController.class)
 class LeadControllerTest {
+    @MockitoBean private AuthenticatedOrganizationContext organizationContext;
+    @BeforeEach
+    void organizationContextUsesTestOrganization() {
+        org.mockito.Mockito.when(organizationContext.requireOrganizationId()).thenReturn(com.wautech.crm.TestOrganization.ID);
+    }
+
     @Autowired private MockMvc mockMvc;
     @MockitoBean private LeadService leadService;
 
     @Test
     void createAcceptsOptionalCompanyAndReturnsNewLead() throws Exception {
         UUID id = UUID.randomUUID();
-        when(leadService.create(any())).thenReturn(response(id, null, LeadStatus.NEW));
+        when(leadService.create(eq(TestOrganization.ID), any())).thenReturn(response(id, null, LeadStatus.NEW));
 
         mockMvc.perform(post("/api/leads").contentType(MediaType.APPLICATION_JSON)
                         .content("{\"firstName\":\"Ada\",\"lastName\":\"Lovelace\"}"))
@@ -55,7 +64,7 @@ class LeadControllerTest {
     @Test
     void createReturnsNotFoundForInvalidOrArchivedCompany() throws Exception {
         UUID companyId = UUID.randomUUID();
-        when(leadService.create(any())).thenThrow(new CompanyNotFoundException(companyId));
+        when(leadService.create(eq(TestOrganization.ID), any())).thenThrow(new CompanyNotFoundException(companyId));
 
         mockMvc.perform(post("/api/leads").contentType(MediaType.APPLICATION_JSON)
                         .content("{\"companyId\":\"" + companyId + "\",\"firstName\":\"Ada\",\"lastName\":\"Lovelace\"}"))
@@ -65,22 +74,22 @@ class LeadControllerTest {
     @Test
     void listSupportsStatusCompanyAndCombinedFilters() throws Exception {
         UUID companyId = UUID.randomUUID();
-        when(leadService.listActive(LeadStatus.NEW, companyId)).thenReturn(List.of(response(UUID.randomUUID(), companyId, LeadStatus.NEW)));
+        when(leadService.listActive(TestOrganization.ID, LeadStatus.NEW, companyId)).thenReturn(List.of(response(UUID.randomUUID(), companyId, LeadStatus.NEW)));
 
         mockMvc.perform(get("/api/leads").param("status", "NEW").param("companyId", companyId.toString()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].status").value("NEW"));
-        verify(leadService).listActive(LeadStatus.NEW, companyId);
+        verify(leadService).listActive(TestOrganization.ID, LeadStatus.NEW, companyId);
     }
 
     @Test
     void listForwardsSearchAndSortAlongsideExistingFilters() throws Exception {
         UUID companyId = UUID.randomUUID();
-        when(leadService.listActive(LeadStatus.NEW, companyId, "ada", "firstName", "asc")).thenReturn(List.of());
+        when(leadService.listActive(TestOrganization.ID, LeadStatus.NEW, companyId, "ada", "firstName", "asc")).thenReturn(List.of());
         mockMvc.perform(get("/api/leads").param("status", "NEW").param("companyId", companyId.toString())
                         .param("search", "ada").param("sortBy", "firstName").param("sortDirection", "asc"))
                 .andExpect(status().isOk());
-        verify(leadService).listActive(LeadStatus.NEW, companyId, "ada", "firstName", "asc");
+        verify(leadService).listActive(TestOrganization.ID, LeadStatus.NEW, companyId, "ada", "firstName", "asc");
     }
 
     @Test
@@ -93,7 +102,7 @@ class LeadControllerTest {
     @Test
     void missingLeadReturnsNotFound() throws Exception {
         UUID id = UUID.randomUUID();
-        when(leadService.getById(id)).thenThrow(new LeadNotFoundException(id));
+        when(leadService.getById(TestOrganization.ID, id)).thenThrow(new LeadNotFoundException(id));
 
         mockMvc.perform(get("/api/leads/{id}", id))
                 .andExpect(status().isNotFound())
@@ -103,7 +112,7 @@ class LeadControllerTest {
     @Test
     void putUpdatesDetailsWithoutStatusField() throws Exception {
         UUID id = UUID.randomUUID();
-        when(leadService.update(eq(id), any())).thenReturn(response(id, null, LeadStatus.NEW));
+        when(leadService.update(eq(TestOrganization.ID), eq(id), any())).thenReturn(response(id, null, LeadStatus.NEW));
 
         mockMvc.perform(put("/api/leads/{id}", id).contentType(MediaType.APPLICATION_JSON)
                         .content("{\"firstName\":\"Ada\",\"lastName\":\"Lovelace\",\"status\":\"QUALIFIED\"}"))
@@ -114,8 +123,8 @@ class LeadControllerTest {
     @Test
     void patchChangesStatusAndRejectsIllegalTransition() throws Exception {
         UUID id = UUID.randomUUID();
-        when(leadService.changeStatus(id, LeadStatus.CONTACTED)).thenReturn(response(id, null, LeadStatus.CONTACTED));
-        when(leadService.changeStatus(id, LeadStatus.NEW))
+        when(leadService.changeStatus(TestOrganization.ID, id, LeadStatus.CONTACTED)).thenReturn(response(id, null, LeadStatus.CONTACTED));
+        when(leadService.changeStatus(TestOrganization.ID, id, LeadStatus.NEW))
                 .thenThrow(new IllegalLeadStatusTransitionException(LeadStatus.NEW, LeadStatus.NEW));
 
         mockMvc.perform(patch("/api/leads/{id}/status", id).contentType(MediaType.APPLICATION_JSON)

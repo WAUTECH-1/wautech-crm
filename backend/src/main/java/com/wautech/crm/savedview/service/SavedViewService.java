@@ -5,6 +5,8 @@ import com.wautech.crm.savedview.dto.SavedViewRequest;
 import com.wautech.crm.savedview.dto.SavedViewResponse;
 import com.wautech.crm.savedview.entity.SavedView;
 import com.wautech.crm.savedview.repository.SavedViewRepository;
+import com.wautech.crm.organization.entity.Organization;
+import com.wautech.crm.organization.service.OrganizationService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,39 +18,47 @@ import java.util.UUID;
 public class SavedViewService {
     private final SavedViewRepository repository;
     private final SavedViewConfigurationValidator validator;
-    public SavedViewService(SavedViewRepository repository, SavedViewConfigurationValidator validator) {
+    private final OrganizationService organizationService;
+    public SavedViewService(SavedViewRepository repository, SavedViewConfigurationValidator validator,
+                            OrganizationService organizationService) {
         this.repository = repository;
         this.validator = validator;
+        this.organizationService = organizationService;
     }
 
-    public SavedViewResponse create(SavedViewRequest request) {
+    public SavedViewResponse create(UUID organizationId, SavedViewRequest request) {
+        Organization organization = organizationService.requireActiveOrganization(organizationId);
         validate(request);
         JsonNode configuration = request.configuration().deepCopy();
-        SavedView view = new SavedView(request.name().trim(), request.resource(), request.configurationVersion(), configuration);
+        SavedView view = new SavedView(organization, request.name().trim(), request.resource(), request.configurationVersion(), configuration);
         return SavedViewResponse.from(repository.save(view));
     }
 
     @Transactional(readOnly = true)
-    public List<SavedViewResponse> listActive() {
-        return repository.findAllByArchivedFalseOrderByNameAscIdAsc().stream()
+    public List<SavedViewResponse> listActive(UUID organizationId) {
+        organizationService.requireActiveOrganization(organizationId);
+        return repository.findAllByOrganization_IdAndArchivedFalseOrderByNameAscIdAsc(organizationId).stream()
                 .map(SavedViewResponse::from).toList();
     }
 
     @Transactional(readOnly = true)
-    public SavedViewResponse getById(UUID id) {
-        return SavedViewResponse.from(findActive(id));
+    public SavedViewResponse getById(UUID organizationId, UUID id) {
+        organizationService.requireActiveOrganization(organizationId);
+        return SavedViewResponse.from(findActive(organizationId, id));
     }
 
-    public SavedViewResponse update(UUID id, SavedViewRequest request) {
+    public SavedViewResponse update(UUID organizationId, UUID id, SavedViewRequest request) {
+        organizationService.requireActiveOrganization(organizationId);
         validate(request);
-        SavedView view = findActive(id);
+        SavedView view = findActive(organizationId, id);
         view.update(request.name().trim(), request.resource(), request.configurationVersion(),
                 request.configuration().deepCopy());
         return SavedViewResponse.from(repository.save(view));
     }
 
-    public void archive(UUID id) {
-        SavedView view = findActive(id);
+    public void archive(UUID organizationId, UUID id) {
+        organizationService.requireActiveOrganization(organizationId);
+        SavedView view = findActive(organizationId, id);
         view.archive();
         repository.save(view);
     }
@@ -57,7 +67,8 @@ public class SavedViewService {
         validator.validate(request.resource(), request.configurationVersion(), request.configuration());
     }
 
-    private SavedView findActive(UUID id) {
-        return repository.findByIdAndArchivedFalse(id).orElseThrow(() -> new SavedViewNotFoundException(id));
+    private SavedView findActive(UUID organizationId, UUID id) {
+        return repository.findByIdAndOrganization_IdAndArchivedFalse(id, organizationId)
+                .orElseThrow(() -> new SavedViewNotFoundException(id));
     }
 }

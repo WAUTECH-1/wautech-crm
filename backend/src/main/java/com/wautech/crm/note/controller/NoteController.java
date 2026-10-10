@@ -3,6 +3,7 @@ package com.wautech.crm.note.controller;
 import com.wautech.crm.note.dto.NoteRequest;
 import com.wautech.crm.note.dto.NoteResponse;
 import com.wautech.crm.note.service.NoteService;
+import com.wautech.crm.platform.tenant.AuthenticatedOrganizationContext;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -23,15 +24,17 @@ import java.util.UUID;
 @RequestMapping("/api/notes")
 public class NoteController {
     private final NoteService noteService;
+    private final AuthenticatedOrganizationContext organizationContext;
 
-    public NoteController(NoteService noteService) {
+    public NoteController(NoteService noteService, AuthenticatedOrganizationContext organizationContext) {
         this.noteService = noteService;
+        this.organizationContext = organizationContext;
     }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public NoteResponse create(@Valid @RequestBody NoteRequest request) {
-        return noteService.create(request);
+        return noteService.create(organizationContext.requireOrganizationId(), request);
     }
 
     @GetMapping
@@ -43,24 +46,24 @@ public class NoteController {
                                          @RequestParam(required = false) String sortBy,
                                          @RequestParam(required = false) String sortDirection) {
         return search == null && sortBy == null && sortDirection == null
-                ? noteService.listActive(companyId, contactId, leadId, opportunityId)
-                : noteService.listActive(companyId, contactId, leadId, opportunityId,
+                ? noteService.listActive(organizationContext.requireOrganizationId(), companyId, contactId, leadId, opportunityId)
+                : noteService.listActive(organizationContext.requireOrganizationId(), companyId, contactId, leadId, opportunityId,
                 search, sortBy, sortDirection);
     }
 
     @GetMapping("/{id}")
     public NoteResponse getById(@PathVariable UUID id) {
-        return noteService.getById(id);
+        return noteService.getById(organizationContext.requireOrganizationId(), id);
     }
 
     @PutMapping("/{id}")
     public NoteResponse update(@PathVariable UUID id, @Valid @RequestBody NoteRequest request) {
-        return noteService.update(id, request);
+        return noteService.update(organizationContext.requireOrganizationId(), id, request);
     }
 
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void archive(@PathVariable UUID id) {
-        noteService.archive(id);
+        noteService.archive(organizationContext.requireOrganizationId(), id);
     }
 }

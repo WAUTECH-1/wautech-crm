@@ -1,9 +1,12 @@
 package com.wautech.crm.note.controller;
 
+import com.wautech.crm.platform.tenant.AuthenticatedOrganizationContext;
+import com.wautech.crm.TestOrganization;
 import com.wautech.crm.note.dto.NoteResponse;
 import com.wautech.crm.note.service.NoteNotFoundException;
 import com.wautech.crm.note.service.NoteService;
 import com.wautech.crm.company.service.CompanyNotFoundException;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -23,6 +26,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @WebMvcTest(NoteController.class)
 class NoteControllerTest {
+    @MockitoBean private AuthenticatedOrganizationContext organizationContext;
+    @BeforeEach
+    void organizationContextUsesTestOrganization() {
+        org.mockito.Mockito.when(organizationContext.requireOrganizationId()).thenReturn(com.wautech.crm.TestOrganization.ID);
+    }
+
     @Autowired private MockMvc mockMvc;
     @MockitoBean private NoteService noteService;
 
@@ -30,7 +39,7 @@ class NoteControllerTest {
     void createsNoteAndReturns201() throws Exception {
         UUID id = UUID.randomUUID();
         UUID companyId = UUID.randomUUID();
-        when(noteService.create(any())).thenReturn(response(id, companyId, null, null, null, "Title"));
+        when(noteService.create(eq(TestOrganization.ID), any())).thenReturn(response(id, companyId, null, null, null, "Title"));
 
         mockMvc.perform(post("/api/notes").contentType(MediaType.APPLICATION_JSON)
                         .content(requestJson(companyId, null, null, null, "  Title  ", "Plain text")))
@@ -68,13 +77,13 @@ class NoteControllerTest {
     @Test
     void mapsMissingParentAndArchivedOrMissingNoteTo404() throws Exception {
         UUID companyId = UUID.randomUUID();
-        when(noteService.create(any())).thenThrow(new CompanyNotFoundException(companyId));
+        when(noteService.create(eq(TestOrganization.ID), any())).thenThrow(new CompanyNotFoundException(companyId));
         mockMvc.perform(post("/api/notes").contentType(MediaType.APPLICATION_JSON)
                         .content(requestJson(companyId, null, null, null, "Title", "Body")))
                 .andExpect(status().isNotFound());
 
         UUID id = UUID.randomUUID();
-        when(noteService.getById(id)).thenThrow(new NoteNotFoundException(id));
+        when(noteService.getById(TestOrganization.ID, id)).thenThrow(new NoteNotFoundException(id));
         mockMvc.perform(get("/api/notes/{id}", id)).andExpect(status().isNotFound());
     }
 
@@ -82,8 +91,8 @@ class NoteControllerTest {
     void readsAndUpdatesNote() throws Exception {
         UUID id = UUID.randomUUID();
         UUID companyId = UUID.randomUUID();
-        when(noteService.getById(id)).thenReturn(response(id, companyId, null, null, null, "Title"));
-        when(noteService.update(eq(id), any())).thenReturn(response(id, companyId, null, null, null, "Updated"));
+        when(noteService.getById(TestOrganization.ID, id)).thenReturn(response(id, companyId, null, null, null, "Title"));
+        when(noteService.update(eq(TestOrganization.ID), eq(id), any())).thenReturn(response(id, companyId, null, null, null, "Updated"));
 
         mockMvc.perform(get("/api/notes/{id}", id)).andExpect(status().isOk()).andExpect(jsonPath("$.title").value("Title"));
         mockMvc.perform(put("/api/notes/{id}", id).contentType(MediaType.APPLICATION_JSON)
@@ -97,24 +106,24 @@ class NoteControllerTest {
         UUID contactId = UUID.randomUUID();
         UUID leadId = UUID.randomUUID();
         UUID opportunityId = UUID.randomUUID();
-        when(noteService.listActive(companyId, contactId, leadId, opportunityId)).thenReturn(List.of());
+        when(noteService.listActive(TestOrganization.ID, companyId, contactId, leadId, opportunityId)).thenReturn(List.of());
 
         mockMvc.perform(get("/api/notes").param("companyId", companyId.toString())
                         .param("contactId", contactId.toString()).param("leadId", leadId.toString())
                         .param("opportunityId", opportunityId.toString()))
                 .andExpect(status().isOk()).andExpect(content().json("[]"));
-        verify(noteService).listActive(companyId, contactId, leadId, opportunityId);
+        verify(noteService).listActive(TestOrganization.ID, companyId, contactId, leadId, opportunityId);
     }
 
     @Test
     void listForwardsSearchAndSortAlongsideNoteParentFilters() throws Exception {
         UUID companyId = UUID.randomUUID();
-        when(noteService.listActive(companyId, null, null, null, "renewal", "updatedAt", "desc"))
+        when(noteService.listActive(TestOrganization.ID, companyId, null, null, null, "renewal", "updatedAt", "desc"))
                 .thenReturn(List.of());
         mockMvc.perform(get("/api/notes").param("companyId", companyId.toString()).param("search", "renewal")
                         .param("sortBy", "updatedAt").param("sortDirection", "desc"))
                 .andExpect(status().isOk());
-        verify(noteService).listActive(companyId, null, null, null, "renewal", "updatedAt", "desc");
+        verify(noteService).listActive(TestOrganization.ID, companyId, null, null, null, "renewal", "updatedAt", "desc");
     }
 
     @Test

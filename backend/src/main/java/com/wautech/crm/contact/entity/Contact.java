@@ -1,6 +1,7 @@
 package com.wautech.crm.contact.entity;
 
 import com.wautech.crm.company.entity.Company;
+import com.wautech.crm.organization.entity.Organization;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -21,6 +22,10 @@ public class Contact {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "organization_id", nullable = false)
+    private Organization organization;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "company_id", nullable = false)
@@ -56,8 +61,9 @@ public class Contact {
     protected Contact() {
     }
 
-    public Contact(Company company, String firstName, String lastName, String email,
+    public Contact(Organization organization, Company company, String firstName, String lastName, String email,
                    String phone, String jobTitle, String status) {
+        this.organization = organization;
         this.company = company;
         this.firstName = firstName;
         this.lastName = lastName;
@@ -92,6 +98,7 @@ public class Contact {
     }
 
     public UUID getId() { return id; }
+    public Organization getOrganization() { return organization; }
     public Company getCompany() { return company; }
     public String getFirstName() { return firstName; }
     public String getLastName() { return lastName; }

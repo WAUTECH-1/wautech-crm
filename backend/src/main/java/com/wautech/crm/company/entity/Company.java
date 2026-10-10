@@ -1,10 +1,14 @@
 package com.wautech.crm.company.entity;
 
+import com.wautech.crm.organization.entity.Organization;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 
@@ -17,6 +21,10 @@ public class Company {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "organization_id", nullable = false)
+    private Organization organization;
 
     @Column(nullable = false, length = 200)
     private String name;
@@ -48,7 +56,8 @@ public class Company {
     protected Company() {
     }
 
-    public Company(String name, String website, String industry, String phone, String email, String status) {
+    public Company(Organization organization, String name, String website, String industry, String phone, String email, String status) {
+        this.organization = organization;
         this.name = name;
         this.website = website;
         this.industry = industry;
@@ -80,6 +89,7 @@ public class Company {
     }
 
     public UUID getId() { return id; }
+    public Organization getOrganization() { return organization; }
     public String getName() { return name; }
     public String getWebsite() { return website; }
     public String getIndustry() { return industry; }

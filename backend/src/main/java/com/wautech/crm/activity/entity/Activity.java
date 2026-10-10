@@ -4,6 +4,7 @@ import com.wautech.crm.company.entity.Company;
 import com.wautech.crm.contact.entity.Contact;
 import com.wautech.crm.lead.entity.Lead;
 import com.wautech.crm.opportunity.entity.Opportunity;
+import com.wautech.crm.organization.entity.Organization;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -26,6 +27,10 @@ public class Activity {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "organization_id", nullable = false)
+    private Organization organization;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "company_id")
@@ -68,8 +73,9 @@ public class Activity {
     protected Activity() {
     }
 
-    public Activity(Company company, Contact contact, Lead lead, Opportunity opportunity, ActivityType type,
+    public Activity(Organization organization, Company company, Contact contact, Lead lead, Opportunity opportunity, ActivityType type,
                     String subject, String description, Instant occurredAt) {
+        this.organization = organization;
         this.company = company;
         this.contact = contact;
         this.lead = lead;
@@ -106,6 +112,7 @@ public class Activity {
     }
 
     public UUID getId() { return id; }
+    public Organization getOrganization() { return organization; }
     public Company getCompany() { return company; }
     public Contact getContact() { return contact; }
     public Lead getLead() { return lead; }

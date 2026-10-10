@@ -1,5 +1,7 @@
 package com.wautech.crm.task.service;
 
+import com.wautech.crm.TestOrganization;
+import com.wautech.crm.organization.service.OrganizationService;
 import com.wautech.crm.company.entity.Company;
 import com.wautech.crm.company.repository.CompanyRepository;
 import com.wautech.crm.company.service.CompanyNotFoundException;
@@ -45,16 +47,17 @@ class TaskServiceTest {
     @Mock private ContactRepository contactRepository;
     @Mock private LeadRepository leadRepository;
     @Mock private OpportunityRepository opportunityRepository;
+    @Mock private OrganizationService organizationService;
     @InjectMocks private TaskService taskService;
 
     @Test
     void createsTaskWithDefaultStatusAndPriority() {
         UUID companyId = UUID.randomUUID();
         Company company = company(companyId);
-        when(companyRepository.findByIdAndArchivedFalse(companyId)).thenReturn(Optional.of(company));
+        when(companyRepository.findByIdAndOrganization_IdAndArchivedFalse(companyId, TestOrganization.ID)).thenReturn(Optional.of(company));
         when(taskRepository.save(any(Task.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        TaskResponse response = taskService.create(request(companyId, null, null, null,
+        TaskResponse response = taskService.create(TestOrganization.ID, request(companyId, null, null, null,
                 "  Call prospect  ", null, null, null));
 
         assertEquals("Call prospect", response.title());
@@ -74,16 +77,16 @@ class TaskServiceTest {
         Contact contact = mock(Contact.class);
         Lead lead = mock(Lead.class);
         Opportunity opportunity = mock(Opportunity.class);
-        when(companyRepository.findByIdAndArchivedFalse(companyId)).thenReturn(Optional.of(company));
-        when(contactRepository.findByIdAndArchivedFalse(contactId)).thenReturn(Optional.of(contact));
-        when(leadRepository.findByIdAndArchivedFalse(leadId)).thenReturn(Optional.of(lead));
-        when(opportunityRepository.findByIdAndArchivedFalse(opportunityId)).thenReturn(Optional.of(opportunity));
+        when(companyRepository.findByIdAndOrganization_IdAndArchivedFalse(companyId, TestOrganization.ID)).thenReturn(Optional.of(company));
+        when(contactRepository.findByIdAndOrganization_IdAndArchivedFalse(contactId, TestOrganization.ID)).thenReturn(Optional.of(contact));
+        when(leadRepository.findByIdAndOrganization_IdAndArchivedFalse(leadId, TestOrganization.ID)).thenReturn(Optional.of(lead));
+        when(opportunityRepository.findByIdAndOrganization_IdAndArchivedFalse(opportunityId, TestOrganization.ID)).thenReturn(Optional.of(opportunity));
         when(contact.getId()).thenReturn(contactId);
         when(lead.getId()).thenReturn(leadId);
         when(opportunity.getId()).thenReturn(opportunityId);
         when(taskRepository.save(any(Task.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        TaskResponse response = taskService.create(request(companyId, contactId, leadId, opportunityId,
+        TaskResponse response = taskService.create(TestOrganization.ID, request(companyId, contactId, leadId, opportunityId,
                 "Follow up", null, TaskPriority.HIGH, null));
 
         assertEquals(companyId, response.companyId());
@@ -101,17 +104,17 @@ class TaskServiceTest {
         Contact contact = mock(Contact.class);
         Lead lead = mock(Lead.class);
         Opportunity opportunity = mock(Opportunity.class);
-        when(contactRepository.findByIdAndArchivedFalse(contactId)).thenReturn(Optional.of(contact));
-        when(leadRepository.findByIdAndArchivedFalse(leadId)).thenReturn(Optional.of(lead));
-        when(opportunityRepository.findByIdAndArchivedFalse(opportunityId)).thenReturn(Optional.of(opportunity));
+        when(contactRepository.findByIdAndOrganization_IdAndArchivedFalse(contactId, TestOrganization.ID)).thenReturn(Optional.of(contact));
+        when(leadRepository.findByIdAndOrganization_IdAndArchivedFalse(leadId, TestOrganization.ID)).thenReturn(Optional.of(lead));
+        when(opportunityRepository.findByIdAndOrganization_IdAndArchivedFalse(opportunityId, TestOrganization.ID)).thenReturn(Optional.of(opportunity));
         when(contact.getId()).thenReturn(contactId);
         when(lead.getId()).thenReturn(leadId);
         when(opportunity.getId()).thenReturn(opportunityId);
         when(taskRepository.save(any(Task.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        assertEquals(contactId, taskService.create(request(null, contactId, null, null, "Call", null, null, null)).contactId());
-        assertEquals(leadId, taskService.create(request(null, null, leadId, null, "Call", null, null, null)).leadId());
-        assertEquals(opportunityId, taskService.create(request(null, null, null, opportunityId, "Call", null, null, null)).opportunityId());
+        assertEquals(contactId, taskService.create(TestOrganization.ID, request(null, contactId, null, null, "Call", null, null, null)).contactId());
+        assertEquals(leadId, taskService.create(TestOrganization.ID, request(null, null, leadId, null, "Call", null, null, null)).leadId());
+        assertEquals(opportunityId, taskService.create(TestOrganization.ID, request(null, null, null, opportunityId, "Call", null, null, null)).opportunityId());
     }
 
     @Test
@@ -120,19 +123,19 @@ class TaskServiceTest {
         UUID contactId = UUID.randomUUID();
         UUID leadId = UUID.randomUUID();
         UUID opportunityId = UUID.randomUUID();
-        when(companyRepository.findByIdAndArchivedFalse(companyId)).thenReturn(Optional.empty());
-        when(contactRepository.findByIdAndArchivedFalse(contactId)).thenReturn(Optional.empty());
-        when(leadRepository.findByIdAndArchivedFalse(leadId)).thenReturn(Optional.empty());
-        when(opportunityRepository.findByIdAndArchivedFalse(opportunityId)).thenReturn(Optional.empty());
+        when(companyRepository.findByIdAndOrganization_IdAndArchivedFalse(companyId, TestOrganization.ID)).thenReturn(Optional.empty());
+        when(contactRepository.findByIdAndOrganization_IdAndArchivedFalse(contactId, TestOrganization.ID)).thenReturn(Optional.empty());
+        when(leadRepository.findByIdAndOrganization_IdAndArchivedFalse(leadId, TestOrganization.ID)).thenReturn(Optional.empty());
+        when(opportunityRepository.findByIdAndOrganization_IdAndArchivedFalse(opportunityId, TestOrganization.ID)).thenReturn(Optional.empty());
 
         assertThrows(CompanyNotFoundException.class,
-                () -> taskService.create(request(companyId, null, null, null, "Task", null, null, null)));
+                () -> taskService.create(TestOrganization.ID, request(companyId, null, null, null, "Task", null, null, null)));
         assertThrows(ContactNotFoundException.class,
-                () -> taskService.create(request(null, contactId, null, null, "Task", null, null, null)));
+                () -> taskService.create(TestOrganization.ID, request(null, contactId, null, null, "Task", null, null, null)));
         assertThrows(LeadNotFoundException.class,
-                () -> taskService.create(request(null, null, leadId, null, "Task", null, null, null)));
+                () -> taskService.create(TestOrganization.ID, request(null, null, leadId, null, "Task", null, null, null)));
         assertThrows(OpportunityNotFoundException.class,
-                () -> taskService.create(request(null, null, null, opportunityId, "Task", null, null, null)));
+                () -> taskService.create(TestOrganization.ID, request(null, null, null, opportunityId, "Task", null, null, null)));
         verify(taskRepository, never()).save(any());
     }
 
@@ -141,13 +144,13 @@ class TaskServiceTest {
         UUID id = UUID.randomUUID();
         UUID companyId = UUID.randomUUID();
         Company company = company(companyId);
-        Task task = new Task(company, null, null, null, "Old title", null, TaskPriority.NORMAL, null);
-        when(taskRepository.findByIdAndArchivedFalse(id)).thenReturn(Optional.of(task));
-        when(companyRepository.findByIdAndArchivedFalse(companyId)).thenReturn(Optional.of(company));
+        Task task = new Task(new com.wautech.crm.organization.entity.Organization("Test Organization"), company, null, null, null, "Old title", null, TaskPriority.NORMAL, null);
+        when(taskRepository.findByIdAndOrganization_IdAndArchivedFalse(id, TestOrganization.ID)).thenReturn(Optional.of(task));
+        when(companyRepository.findByIdAndOrganization_IdAndArchivedFalse(companyId, TestOrganization.ID)).thenReturn(Optional.of(company));
         when(taskRepository.save(task)).thenReturn(task);
 
-        assertEquals("Old title", taskService.getById(id).title());
-        TaskResponse updated = taskService.update(id,
+        assertEquals("Old title", taskService.getById(TestOrganization.ID, id).title());
+        TaskResponse updated = taskService.update(TestOrganization.ID, id,
                 request(companyId, null, null, null, "New title", "Details", TaskPriority.URGENT,
                         Instant.parse("2026-11-01T10:00:00Z")));
 
@@ -166,14 +169,14 @@ class TaskServiceTest {
         UUID opportunityId = UUID.randomUUID();
         Instant dueBefore = Instant.parse("2026-11-01T00:00:00Z");
         Instant dueAfter = Instant.parse("2026-10-01T00:00:00Z");
-        when(taskRepository.findActive(eq(companyId), eq(contactId), eq(leadId), eq(opportunityId),
-                eq(TaskStatus.OPEN), eq(TaskPriority.HIGH), eq(dueBefore), eq(dueAfter), eq(true), any(Instant.class)))
+        when(taskRepository.findActive(eq(TestOrganization.ID), eq(companyId), eq(contactId), eq(leadId), eq(opportunityId),
+                eq(TaskStatus.OPEN), eq(TaskPriority.HIGH), eq(dueBefore), eq(dueAfter), eq(true), isNull(), any(Instant.class)))
                 .thenReturn(List.of());
 
-        assertTrue(taskService.listActive(companyId, contactId, leadId, opportunityId, TaskStatus.OPEN,
+        assertTrue(taskService.listActive(TestOrganization.ID, companyId, contactId, leadId, opportunityId, TaskStatus.OPEN,
                 TaskPriority.HIGH, dueBefore, dueAfter, true).isEmpty());
-        verify(taskRepository).findActive(eq(companyId), eq(contactId), eq(leadId), eq(opportunityId),
-                eq(TaskStatus.OPEN), eq(TaskPriority.HIGH), eq(dueBefore), eq(dueAfter), eq(true), any(Instant.class));
+        verify(taskRepository).findActive(eq(TestOrganization.ID), eq(companyId), eq(contactId), eq(leadId), eq(opportunityId),
+                eq(TaskStatus.OPEN), eq(TaskPriority.HIGH), eq(dueBefore), eq(dueAfter), eq(true), isNull(), any(Instant.class));
     }
 
     @ParameterizedTest
@@ -228,11 +231,11 @@ class TaskServiceTest {
         Company company = company(companyId);
         Task task = taskWithStatus(TaskStatus.COMPLETED);
         Instant completedAt = task.getCompletedAt();
-        when(taskRepository.findByIdAndArchivedFalse(id)).thenReturn(Optional.of(task));
-        when(companyRepository.findByIdAndArchivedFalse(companyId)).thenReturn(Optional.of(company));
+        when(taskRepository.findByIdAndOrganization_IdAndArchivedFalse(id, TestOrganization.ID)).thenReturn(Optional.of(task));
+        when(companyRepository.findByIdAndOrganization_IdAndArchivedFalse(companyId, TestOrganization.ID)).thenReturn(Optional.of(company));
         when(taskRepository.save(task)).thenReturn(task);
 
-        taskService.update(id, request(companyId, null, null, null, "Updated", null, TaskPriority.HIGH, null));
+        taskService.update(TestOrganization.ID, id, request(companyId, null, null, null, "Updated", null, TaskPriority.HIGH, null));
 
         assertEquals(TaskStatus.COMPLETED, task.getStatus());
         assertEquals(completedAt, task.getCompletedAt());
@@ -259,24 +262,24 @@ class TaskServiceTest {
     @Test
     void archivedTaskCannotBeReadUpdatedChangedOrArchivedAgain() {
         UUID id = UUID.randomUUID();
-        when(taskRepository.findByIdAndArchivedFalse(id)).thenReturn(Optional.empty());
+        when(taskRepository.findByIdAndOrganization_IdAndArchivedFalse(id, TestOrganization.ID)).thenReturn(Optional.empty());
         TaskRequest request = request(UUID.randomUUID(), null, null, null, "Task", null, null, null);
 
-        assertThrows(TaskNotFoundException.class, () -> taskService.getById(id));
-        assertThrows(TaskNotFoundException.class, () -> taskService.update(id, request));
-        assertThrows(TaskNotFoundException.class, () -> taskService.changeStatus(id, TaskStatus.COMPLETED));
-        assertThrows(TaskNotFoundException.class, () -> taskService.archive(id));
+        assertThrows(TaskNotFoundException.class, () -> taskService.getById(TestOrganization.ID, id));
+        assertThrows(TaskNotFoundException.class, () -> taskService.update(TestOrganization.ID, id, request));
+        assertThrows(TaskNotFoundException.class, () -> taskService.changeStatus(TestOrganization.ID, id, TaskStatus.COMPLETED));
+        assertThrows(TaskNotFoundException.class, () -> taskService.archive(TestOrganization.ID, id));
         verifyNoInteractions(companyRepository, contactRepository, leadRepository, opportunityRepository);
     }
 
     @Test
     void archiveSoftDeletesTask() {
         UUID id = UUID.randomUUID();
-        Task task = new Task(company(UUID.randomUUID()), null, null, null, "Task", null, null, null);
-        when(taskRepository.findByIdAndArchivedFalse(id)).thenReturn(Optional.of(task));
+        Task task = new Task(new com.wautech.crm.organization.entity.Organization("Test Organization"), company(UUID.randomUUID()), null, null, null, "Task", null, null, null);
+        when(taskRepository.findByIdAndOrganization_IdAndArchivedFalse(id, TestOrganization.ID)).thenReturn(Optional.of(task));
         when(taskRepository.save(task)).thenReturn(task);
 
-        taskService.archive(id);
+        taskService.archive(TestOrganization.ID, id);
 
         assertTrue(task.isArchived());
         assertNotNull(task.getUpdatedAt());
@@ -292,7 +295,7 @@ class TaskServiceTest {
     }
 
     private Task taskWithDueAt(Instant dueAt) {
-        return new Task(company(UUID.randomUUID()), null, null, null, "Task", null, TaskPriority.NORMAL, dueAt);
+        return new Task(new com.wautech.crm.organization.entity.Organization("Test Organization"), company(UUID.randomUUID()), null, null, null, "Task", null, TaskPriority.NORMAL, dueAt);
     }
 
     private Company company(UUID id) {
@@ -304,5 +307,17 @@ class TaskServiceTest {
     private TaskRequest request(UUID companyId, UUID contactId, UUID leadId, UUID opportunityId, String title,
                                 String description, TaskPriority priority, Instant dueAt) {
         return new TaskRequest(companyId, contactId, leadId, opportunityId, title, description, priority, dueAt);
+    }
+
+    @Test
+    void anotherOrganizationCannotReadTaskById() {
+        UUID taskId = UUID.randomUUID();
+        UUID otherOrganizationId = UUID.randomUUID();
+        when(taskRepository.findByIdAndOrganization_IdAndArchivedFalse(taskId, otherOrganizationId))
+                .thenReturn(Optional.empty());
+
+        assertThrows(TaskNotFoundException.class, () -> taskService.getById(otherOrganizationId, taskId));
+
+        verify(taskRepository).findByIdAndOrganization_IdAndArchivedFalse(taskId, otherOrganizationId);
     }
 }

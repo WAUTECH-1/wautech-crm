@@ -1,5 +1,7 @@
 package com.wautech.crm.company.service;
 
+import com.wautech.crm.TestOrganization;
+import com.wautech.crm.organization.service.OrganizationService;
 import com.wautech.crm.company.dto.CompanyRequest;
 import com.wautech.crm.company.dto.CompanyResponse;
 import com.wautech.crm.company.entity.Company;
@@ -23,6 +25,7 @@ class CompanyServiceTest {
     @Mock
     private CompanyRepository companyRepository;
 
+    @Mock private OrganizationService organizationService;
     @InjectMocks
     private CompanyService companyService;
 
@@ -30,7 +33,7 @@ class CompanyServiceTest {
     void createTrimsNameAndDefaultsStatus() {
         when(companyRepository.save(any(Company.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        CompanyResponse response = companyService.create(request("  Acme  ", null, null));
+        CompanyResponse response = companyService.create(TestOrganization.ID, request("  Acme  ", null, null));
 
         assertEquals("Acme", response.name());
         assertEquals("ACTIVE", response.status());
@@ -40,32 +43,32 @@ class CompanyServiceTest {
 
     @Test
     void listReturnsOnlyRepositorySelectedActiveCompanies() {
-        when(companyRepository.findAllByArchivedFalseOrderByCreatedAtDesc())
-                .thenReturn(List.of(new Company("Acme", null, null, null, null, "ACTIVE")));
+        when(companyRepository.findAllByOrganization_IdAndArchivedFalseOrderByCreatedAtDesc(TestOrganization.ID))
+                .thenReturn(List.of(new Company(new com.wautech.crm.organization.entity.Organization("Test Organization"), "Acme", null, null, null, null, "ACTIVE")));
 
-        List<CompanyResponse> response = companyService.listActive();
+        List<CompanyResponse> response = companyService.listActive(TestOrganization.ID);
 
         assertEquals(1, response.size());
         assertEquals("Acme", response.getFirst().name());
-        verify(companyRepository).findAllByArchivedFalseOrderByCreatedAtDesc();
+        verify(companyRepository).findAllByOrganization_IdAndArchivedFalseOrderByCreatedAtDesc(TestOrganization.ID);
     }
 
     @Test
     void getByIdThrowsWhenCompanyIsMissing() {
         UUID id = UUID.randomUUID();
-        when(companyRepository.findByIdAndArchivedFalse(id)).thenReturn(Optional.empty());
+        when(companyRepository.findByIdAndOrganization_IdAndArchivedFalse(id, TestOrganization.ID)).thenReturn(Optional.empty());
 
-        assertThrows(CompanyNotFoundException.class, () -> companyService.getById(id));
+        assertThrows(CompanyNotFoundException.class, () -> companyService.getById(TestOrganization.ID, id));
     }
 
     @Test
     void updateChangesCompanyFields() {
         UUID id = UUID.randomUUID();
-        Company company = new Company("Old name", null, null, null, null, "ACTIVE");
-        when(companyRepository.findByIdAndArchivedFalse(id)).thenReturn(Optional.of(company));
+        Company company = new Company(new com.wautech.crm.organization.entity.Organization("Test Organization"), "Old name", null, null, null, null, "ACTIVE");
+        when(companyRepository.findByIdAndOrganization_IdAndArchivedFalse(id, TestOrganization.ID)).thenReturn(Optional.of(company));
         when(companyRepository.save(company)).thenReturn(company);
 
-        CompanyResponse response = companyService.update(id, request("New name", "Technology", "PAUSED"));
+        CompanyResponse response = companyService.update(TestOrganization.ID, id, request("New name", "Technology", "PAUSED"));
 
         assertEquals("New name", response.name());
         assertEquals("Technology", response.industry());
@@ -76,11 +79,11 @@ class CompanyServiceTest {
     @Test
     void archiveSetsSoftDeleteFlag() {
         UUID id = UUID.randomUUID();
-        Company company = new Company("Acme", null, null, null, null, "ACTIVE");
-        when(companyRepository.findByIdAndArchivedFalse(id)).thenReturn(Optional.of(company));
+        Company company = new Company(new com.wautech.crm.organization.entity.Organization("Test Organization"), "Acme", null, null, null, null, "ACTIVE");
+        when(companyRepository.findByIdAndOrganization_IdAndArchivedFalse(id, TestOrganization.ID)).thenReturn(Optional.of(company));
         when(companyRepository.save(company)).thenReturn(company);
 
-        companyService.archive(id);
+        companyService.archive(TestOrganization.ID, id);
 
         assertTrue(company.isArchived());
         assertNotNull(company.getUpdatedAt());
@@ -89,5 +92,17 @@ class CompanyServiceTest {
 
     private CompanyRequest request(String name, String industry, String status) {
         return new CompanyRequest(name, null, industry, null, null, status);
+    }
+
+    @Test
+    void anotherOrganizationCannotReadCompanyById() {
+        UUID companyId = UUID.randomUUID();
+        UUID otherOrganizationId = UUID.randomUUID();
+        when(companyRepository.findByIdAndOrganization_IdAndArchivedFalse(companyId, otherOrganizationId))
+                .thenReturn(Optional.empty());
+
+        assertThrows(CompanyNotFoundException.class, () -> companyService.getById(otherOrganizationId, companyId));
+
+        verify(companyRepository).findByIdAndOrganization_IdAndArchivedFalse(companyId, otherOrganizationId);
     }
 }

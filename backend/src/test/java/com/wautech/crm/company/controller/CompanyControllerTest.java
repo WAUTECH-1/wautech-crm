@@ -1,8 +1,11 @@
 package com.wautech.crm.company.controller;
 
+import com.wautech.crm.platform.tenant.AuthenticatedOrganizationContext;
+import com.wautech.crm.TestOrganization;
 import com.wautech.crm.company.dto.CompanyResponse;
 import com.wautech.crm.company.service.CompanyNotFoundException;
 import com.wautech.crm.company.service.CompanyService;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -20,8 +23,16 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @WebMvcTest(CompanyController.class)
 class CompanyControllerTest {
+    @BeforeEach
+    void organizationContextUsesTestOrganization() {
+        org.mockito.Mockito.when(organizationContext.requireOrganizationId()).thenReturn(com.wautech.crm.TestOrganization.ID);
+    }
+
     @Autowired
     private MockMvc mockMvc;
+
+    @MockitoBean
+    private AuthenticatedOrganizationContext organizationContext;
 
     @MockitoBean
     private CompanyService companyService;
@@ -29,7 +40,7 @@ class CompanyControllerTest {
     @Test
     void createReturnsCompanyResponse() throws Exception {
         UUID id = UUID.randomUUID();
-        when(companyService.create(any())).thenReturn(response(id, "Acme"));
+        when(companyService.create(eq(TestOrganization.ID), any())).thenReturn(response(id, "Acme"));
 
         mockMvc.perform(post("/api/companies")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -60,7 +71,7 @@ class CompanyControllerTest {
 
     @Test
     void listReturnsCompaniesFromService() throws Exception {
-        when(companyService.listActive()).thenReturn(List.of(response(UUID.randomUUID(), "Acme")));
+        when(companyService.listActive(TestOrganization.ID)).thenReturn(List.of(response(UUID.randomUUID(), "Acme")));
 
         mockMvc.perform(get("/api/companies"))
                 .andExpect(status().isOk())
@@ -69,17 +80,17 @@ class CompanyControllerTest {
 
     @Test
     void listForwardsSearchAndSortOptions() throws Exception {
-        when(companyService.listActive("acme", "name", "asc")).thenReturn(List.of());
+        when(companyService.listActive(TestOrganization.ID, "acme", "name", "asc")).thenReturn(List.of());
         mockMvc.perform(get("/api/companies").param("search", "acme")
                         .param("sortBy", "name").param("sortDirection", "asc"))
                 .andExpect(status().isOk());
-        verify(companyService).listActive("acme", "name", "asc");
+        verify(companyService).listActive(TestOrganization.ID, "acme", "name", "asc");
     }
 
     @Test
     void getMissingCompanyReturnsNotFound() throws Exception {
         UUID id = UUID.randomUUID();
-        when(companyService.getById(id)).thenThrow(new CompanyNotFoundException(id));
+        when(companyService.getById(TestOrganization.ID, id)).thenThrow(new CompanyNotFoundException(id));
 
         mockMvc.perform(get("/api/companies/{id}", id))
                 .andExpect(status().isNotFound())
@@ -89,7 +100,7 @@ class CompanyControllerTest {
     @Test
     void updateReturnsUpdatedCompany() throws Exception {
         UUID id = UUID.randomUUID();
-        when(companyService.update(eq(id), any())).thenReturn(response(id, "Updated"));
+        when(companyService.update(eq(TestOrganization.ID), eq(id), any())).thenReturn(response(id, "Updated"));
 
         mockMvc.perform(put("/api/companies/{id}", id)
                         .contentType(MediaType.APPLICATION_JSON)

@@ -1,5 +1,7 @@
 package com.wautech.crm.activity.service;
 
+import com.wautech.crm.TestOrganization;
+import com.wautech.crm.organization.service.OrganizationService;
 import com.wautech.crm.activity.dto.ActivityRequest;
 import com.wautech.crm.activity.dto.ActivityResponse;
 import com.wautech.crm.activity.entity.Activity;
@@ -41,6 +43,7 @@ class ActivityServiceTest {
     @Mock private ContactRepository contactRepository;
     @Mock private LeadRepository leadRepository;
     @Mock private OpportunityRepository opportunityRepository;
+    @Mock private OrganizationService organizationService;
     @InjectMocks private ActivityService activityService;
 
     @ParameterizedTest
@@ -48,10 +51,10 @@ class ActivityServiceTest {
     void createsEverySupportedActivityType(ActivityType type) {
         UUID companyId = UUID.randomUUID();
         Company company = company(companyId);
-        when(companyRepository.findByIdAndArchivedFalse(companyId)).thenReturn(Optional.of(company));
+        when(companyRepository.findByIdAndOrganization_IdAndArchivedFalse(companyId, TestOrganization.ID)).thenReturn(Optional.of(company));
         when(activityRepository.save(any(Activity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        ActivityResponse response = activityService.create(request(companyId, null, null, null, type));
+        ActivityResponse response = activityService.create(TestOrganization.ID, request(companyId, null, null, null, type));
 
         assertEquals(type, response.type());
         assertEquals(companyId, response.companyId());
@@ -68,26 +71,26 @@ class ActivityServiceTest {
         Contact contact = mock(Contact.class);
         Lead lead = mock(Lead.class);
         Opportunity opportunity = mock(Opportunity.class);
-        when(contactRepository.findByIdAndArchivedFalse(contactId)).thenReturn(Optional.of(contact));
+        when(contactRepository.findByIdAndOrganization_IdAndArchivedFalse(contactId, TestOrganization.ID)).thenReturn(Optional.of(contact));
         when(contact.getId()).thenReturn(contactId);
-        when(leadRepository.findByIdAndArchivedFalse(leadId)).thenReturn(Optional.of(lead));
+        when(leadRepository.findByIdAndOrganization_IdAndArchivedFalse(leadId, TestOrganization.ID)).thenReturn(Optional.of(lead));
         when(lead.getId()).thenReturn(leadId);
-        when(opportunityRepository.findByIdAndArchivedFalse(opportunityId)).thenReturn(Optional.of(opportunity));
+        when(opportunityRepository.findByIdAndOrganization_IdAndArchivedFalse(opportunityId, TestOrganization.ID)).thenReturn(Optional.of(opportunity));
         when(opportunity.getId()).thenReturn(opportunityId);
-        when(companyRepository.findByIdAndArchivedFalse(companyId)).thenReturn(Optional.of(company));
+        when(companyRepository.findByIdAndOrganization_IdAndArchivedFalse(companyId, TestOrganization.ID)).thenReturn(Optional.of(company));
         when(activityRepository.save(any(Activity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        ActivityResponse response = activityService.create(
+        ActivityResponse response = activityService.create(TestOrganization.ID,
                 request(companyId, contactId, leadId, opportunityId, ActivityType.MEETING));
 
         assertEquals(companyId, response.companyId());
         assertEquals(contactId, response.contactId());
         assertEquals(leadId, response.leadId());
         assertEquals(opportunityId, response.opportunityId());
-        verify(companyRepository).findByIdAndArchivedFalse(companyId);
-        verify(contactRepository).findByIdAndArchivedFalse(contactId);
-        verify(leadRepository).findByIdAndArchivedFalse(leadId);
-        verify(opportunityRepository).findByIdAndArchivedFalse(opportunityId);
+        verify(companyRepository).findByIdAndOrganization_IdAndArchivedFalse(companyId, TestOrganization.ID);
+        verify(contactRepository).findByIdAndOrganization_IdAndArchivedFalse(contactId, TestOrganization.ID);
+        verify(leadRepository).findByIdAndOrganization_IdAndArchivedFalse(leadId, TestOrganization.ID);
+        verify(opportunityRepository).findByIdAndOrganization_IdAndArchivedFalse(opportunityId, TestOrganization.ID);
     }
 
     @Test
@@ -98,19 +101,19 @@ class ActivityServiceTest {
         Contact contact = mock(Contact.class);
         Lead lead = mock(Lead.class);
         Opportunity opportunity = mock(Opportunity.class);
-        when(contactRepository.findByIdAndArchivedFalse(contactId)).thenReturn(Optional.of(contact));
+        when(contactRepository.findByIdAndOrganization_IdAndArchivedFalse(contactId, TestOrganization.ID)).thenReturn(Optional.of(contact));
         when(contact.getId()).thenReturn(contactId);
-        when(leadRepository.findByIdAndArchivedFalse(leadId)).thenReturn(Optional.of(lead));
+        when(leadRepository.findByIdAndOrganization_IdAndArchivedFalse(leadId, TestOrganization.ID)).thenReturn(Optional.of(lead));
         when(lead.getId()).thenReturn(leadId);
-        when(opportunityRepository.findByIdAndArchivedFalse(opportunityId)).thenReturn(Optional.of(opportunity));
+        when(opportunityRepository.findByIdAndOrganization_IdAndArchivedFalse(opportunityId, TestOrganization.ID)).thenReturn(Optional.of(opportunity));
         when(opportunity.getId()).thenReturn(opportunityId);
         when(activityRepository.save(any(Activity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        ActivityResponse contactActivity = activityService.create(
+        ActivityResponse contactActivity = activityService.create(TestOrganization.ID,
                 request(null, contactId, null, null, ActivityType.CALL));
-        ActivityResponse leadActivity = activityService.create(
+        ActivityResponse leadActivity = activityService.create(TestOrganization.ID,
                 request(null, null, leadId, null, ActivityType.EMAIL));
-        ActivityResponse opportunityActivity = activityService.create(
+        ActivityResponse opportunityActivity = activityService.create(TestOrganization.ID,
                 request(null, null, null, opportunityId, ActivityType.NOTE));
 
         assertNull(contactActivity.companyId());
@@ -124,40 +127,40 @@ class ActivityServiceTest {
     @Test
     void rejectsMissingOrArchivedCompanyParent() {
         UUID companyId = UUID.randomUUID();
-        when(companyRepository.findByIdAndArchivedFalse(companyId)).thenReturn(Optional.empty());
+        when(companyRepository.findByIdAndOrganization_IdAndArchivedFalse(companyId, TestOrganization.ID)).thenReturn(Optional.empty());
 
         assertThrows(CompanyNotFoundException.class,
-                () -> activityService.create(request(companyId, null, null, null, ActivityType.CALL)));
+                () -> activityService.create(TestOrganization.ID, request(companyId, null, null, null, ActivityType.CALL)));
         verify(activityRepository, never()).save(any());
     }
 
     @Test
     void rejectsMissingOrArchivedContactParent() {
         UUID contactId = UUID.randomUUID();
-        when(contactRepository.findByIdAndArchivedFalse(contactId)).thenReturn(Optional.empty());
+        when(contactRepository.findByIdAndOrganization_IdAndArchivedFalse(contactId, TestOrganization.ID)).thenReturn(Optional.empty());
 
         assertThrows(ContactNotFoundException.class,
-                () -> activityService.create(request(null, contactId, null, null, ActivityType.CALL)));
+                () -> activityService.create(TestOrganization.ID, request(null, contactId, null, null, ActivityType.CALL)));
         verify(activityRepository, never()).save(any());
     }
 
     @Test
     void rejectsMissingOrArchivedLeadParent() {
         UUID leadId = UUID.randomUUID();
-        when(leadRepository.findByIdAndArchivedFalse(leadId)).thenReturn(Optional.empty());
+        when(leadRepository.findByIdAndOrganization_IdAndArchivedFalse(leadId, TestOrganization.ID)).thenReturn(Optional.empty());
 
         assertThrows(LeadNotFoundException.class,
-                () -> activityService.create(request(null, null, leadId, null, ActivityType.CALL)));
+                () -> activityService.create(TestOrganization.ID, request(null, null, leadId, null, ActivityType.CALL)));
         verify(activityRepository, never()).save(any());
     }
 
     @Test
     void rejectsMissingOrArchivedOpportunityParent() {
         UUID opportunityId = UUID.randomUUID();
-        when(opportunityRepository.findByIdAndArchivedFalse(opportunityId)).thenReturn(Optional.empty());
+        when(opportunityRepository.findByIdAndOrganization_IdAndArchivedFalse(opportunityId, TestOrganization.ID)).thenReturn(Optional.empty());
 
         assertThrows(OpportunityNotFoundException.class,
-                () -> activityService.create(request(null, null, null, opportunityId, ActivityType.CALL)));
+                () -> activityService.create(TestOrganization.ID, request(null, null, null, opportunityId, ActivityType.CALL)));
         verify(activityRepository, never()).save(any());
     }
 
@@ -167,12 +170,12 @@ class ActivityServiceTest {
         UUID companyId = UUID.randomUUID();
         Company company = company(companyId);
         Activity activity = activity(company, "Before update", ActivityType.CALL, instant("2026-01-01T10:00:00Z"));
-        when(activityRepository.findByIdAndArchivedFalse(id)).thenReturn(Optional.of(activity));
-        when(companyRepository.findByIdAndArchivedFalse(companyId)).thenReturn(Optional.of(company));
+        when(activityRepository.findByIdAndOrganization_IdAndArchivedFalse(id, TestOrganization.ID)).thenReturn(Optional.of(activity));
+        when(companyRepository.findByIdAndOrganization_IdAndArchivedFalse(companyId, TestOrganization.ID)).thenReturn(Optional.of(company));
         when(activityRepository.save(activity)).thenReturn(activity);
 
-        assertEquals("Before update", activityService.getById(id).subject());
-        ActivityResponse updated = activityService.update(id,
+        assertEquals("Before update", activityService.getById(TestOrganization.ID, id).subject());
+        ActivityResponse updated = activityService.update(TestOrganization.ID, id,
                 request(companyId, null, null, null, ActivityType.EMAIL, "Updated subject"));
 
         assertEquals("Updated subject", updated.subject());
@@ -183,12 +186,12 @@ class ActivityServiceTest {
     @Test
     void archivedActivityCannotBeRetrievedUpdatedOrArchivedAgain() {
         UUID id = UUID.randomUUID();
-        when(activityRepository.findByIdAndArchivedFalse(id)).thenReturn(Optional.empty());
+        when(activityRepository.findByIdAndOrganization_IdAndArchivedFalse(id, TestOrganization.ID)).thenReturn(Optional.empty());
         ActivityRequest request = request(UUID.randomUUID(), null, null, null, ActivityType.NOTE);
 
-        assertThrows(ActivityNotFoundException.class, () -> activityService.getById(id));
-        assertThrows(ActivityNotFoundException.class, () -> activityService.update(id, request));
-        assertThrows(ActivityNotFoundException.class, () -> activityService.archive(id));
+        assertThrows(ActivityNotFoundException.class, () -> activityService.getById(TestOrganization.ID, id));
+        assertThrows(ActivityNotFoundException.class, () -> activityService.update(TestOrganization.ID, id, request));
+        assertThrows(ActivityNotFoundException.class, () -> activityService.archive(TestOrganization.ID, id));
         verifyNoInteractions(companyRepository, contactRepository, leadRepository, opportunityRepository);
     }
 
@@ -200,24 +203,24 @@ class ActivityServiceTest {
         UUID opportunityId = UUID.randomUUID();
         Activity newer = activity(null, "Newer", ActivityType.CALL, instant("2026-02-01T10:00:00Z"));
         Activity older = activity(null, "Older", ActivityType.CALL, instant("2026-01-01T10:00:00Z"));
-        when(activityRepository.findActive(companyId, contactId, leadId, opportunityId, ActivityType.CALL))
+        when(activityRepository.findActive(TestOrganization.ID, companyId, contactId, leadId, opportunityId, ActivityType.CALL))
                 .thenReturn(List.of(newer, older));
 
-        List<ActivityResponse> response = activityService.listActive(companyId, contactId, leadId,
+        List<ActivityResponse> response = activityService.listActive(TestOrganization.ID, companyId, contactId, leadId,
                 opportunityId, ActivityType.CALL);
 
         assertEquals(List.of("Newer", "Older"), response.stream().map(ActivityResponse::subject).toList());
-        verify(activityRepository).findActive(companyId, contactId, leadId, opportunityId, ActivityType.CALL);
+        verify(activityRepository).findActive(TestOrganization.ID, companyId, contactId, leadId, opportunityId, ActivityType.CALL);
     }
 
     @Test
     void archiveSoftDeletesActivity() {
         UUID id = UUID.randomUUID();
         Activity activity = activity(null, "Call", ActivityType.CALL, instant("2026-01-01T10:00:00Z"));
-        when(activityRepository.findByIdAndArchivedFalse(id)).thenReturn(Optional.of(activity));
+        when(activityRepository.findByIdAndOrganization_IdAndArchivedFalse(id, TestOrganization.ID)).thenReturn(Optional.of(activity));
         when(activityRepository.save(activity)).thenReturn(activity);
 
-        activityService.archive(id);
+        activityService.archive(TestOrganization.ID, id);
 
         assertTrue(activity.isArchived());
         assertNotNull(activity.getUpdatedAt());
@@ -231,7 +234,7 @@ class ActivityServiceTest {
     }
 
     private Activity activity(Company company, String subject, ActivityType type, Instant occurredAt) {
-        return new Activity(company, null, null, null, type, subject, "Details", occurredAt);
+        return new Activity(new com.wautech.crm.organization.entity.Organization("Test Organization"), company, null, null, null, type, subject, "Details", occurredAt);
     }
 
     private ActivityRequest request(UUID companyId, UUID contactId, UUID leadId, UUID opportunityId,
@@ -247,5 +250,18 @@ class ActivityServiceTest {
 
     private Instant instant(String value) {
         return Instant.parse(value);
+    }
+
+    @Test
+    void anotherOrganizationCannotReadActivityById() {
+        UUID activityId = UUID.randomUUID();
+        UUID otherOrganizationId = UUID.randomUUID();
+        when(activityRepository.findByIdAndOrganization_IdAndArchivedFalse(activityId, otherOrganizationId))
+                .thenReturn(Optional.empty());
+
+        assertThrows(ActivityNotFoundException.class,
+                () -> activityService.getById(otherOrganizationId, activityId));
+
+        verify(activityRepository).findByIdAndOrganization_IdAndArchivedFalse(activityId, otherOrganizationId);
     }
 }

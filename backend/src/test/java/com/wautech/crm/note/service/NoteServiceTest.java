@@ -1,5 +1,7 @@
 package com.wautech.crm.note.service;
 
+import com.wautech.crm.TestOrganization;
+import com.wautech.crm.organization.service.OrganizationService;
 import com.wautech.crm.company.entity.Company;
 import com.wautech.crm.company.repository.CompanyRepository;
 import com.wautech.crm.company.service.CompanyNotFoundException;
@@ -37,6 +39,7 @@ class NoteServiceTest {
     @Mock private ContactRepository contactRepository;
     @Mock private LeadRepository leadRepository;
     @Mock private OpportunityRepository opportunityRepository;
+    @Mock private OrganizationService organizationService;
     @InjectMocks private NoteService noteService;
 
     @Test
@@ -49,16 +52,16 @@ class NoteServiceTest {
         Contact contact = contact(contactId);
         Lead lead = lead(leadId);
         Opportunity opportunity = opportunity(opportunityId);
-        when(companyRepository.findByIdAndArchivedFalse(companyId)).thenReturn(Optional.of(company));
-        when(contactRepository.findByIdAndArchivedFalse(contactId)).thenReturn(Optional.of(contact));
-        when(leadRepository.findByIdAndArchivedFalse(leadId)).thenReturn(Optional.of(lead));
-        when(opportunityRepository.findByIdAndArchivedFalse(opportunityId)).thenReturn(Optional.of(opportunity));
+        when(companyRepository.findByIdAndOrganization_IdAndArchivedFalse(companyId, TestOrganization.ID)).thenReturn(Optional.of(company));
+        when(contactRepository.findByIdAndOrganization_IdAndArchivedFalse(contactId, TestOrganization.ID)).thenReturn(Optional.of(contact));
+        when(leadRepository.findByIdAndOrganization_IdAndArchivedFalse(leadId, TestOrganization.ID)).thenReturn(Optional.of(lead));
+        when(opportunityRepository.findByIdAndOrganization_IdAndArchivedFalse(opportunityId, TestOrganization.ID)).thenReturn(Optional.of(opportunity));
         when(noteRepository.save(any(Note.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        NoteResponse companyNote = noteService.create(request(companyId, null, null, null, "  Company note  ", "Body"));
-        NoteResponse contactNote = noteService.create(request(null, contactId, null, null, "Contact", "Body"));
-        NoteResponse leadNote = noteService.create(request(null, null, leadId, null, "Lead", "Body"));
-        NoteResponse opportunityNote = noteService.create(request(null, null, null, opportunityId, "Opportunity", "Body"));
+        NoteResponse companyNote = noteService.create(TestOrganization.ID, request(companyId, null, null, null, "  Company note  ", "Body"));
+        NoteResponse contactNote = noteService.create(TestOrganization.ID, request(null, contactId, null, null, "Contact", "Body"));
+        NoteResponse leadNote = noteService.create(TestOrganization.ID, request(null, null, leadId, null, "Lead", "Body"));
+        NoteResponse opportunityNote = noteService.create(TestOrganization.ID, request(null, null, null, opportunityId, "Opportunity", "Body"));
 
         assertEquals("Company note", companyNote.title());
         assertEquals(companyId, companyNote.companyId());
@@ -74,20 +77,20 @@ class NoteServiceTest {
         UUID contactId = UUID.randomUUID();
         UUID leadId = UUID.randomUUID();
         UUID opportunityId = UUID.randomUUID();
-        when(companyRepository.findByIdAndArchivedFalse(companyId)).thenReturn(Optional.empty());
-        when(contactRepository.findByIdAndArchivedFalse(contactId)).thenReturn(Optional.empty());
-        when(leadRepository.findByIdAndArchivedFalse(leadId)).thenReturn(Optional.empty());
-        when(opportunityRepository.findByIdAndArchivedFalse(opportunityId)).thenReturn(Optional.empty());
+        when(companyRepository.findByIdAndOrganization_IdAndArchivedFalse(companyId, TestOrganization.ID)).thenReturn(Optional.empty());
+        when(contactRepository.findByIdAndOrganization_IdAndArchivedFalse(contactId, TestOrganization.ID)).thenReturn(Optional.empty());
+        when(leadRepository.findByIdAndOrganization_IdAndArchivedFalse(leadId, TestOrganization.ID)).thenReturn(Optional.empty());
+        when(opportunityRepository.findByIdAndOrganization_IdAndArchivedFalse(opportunityId, TestOrganization.ID)).thenReturn(Optional.empty());
 
-        assertThrows(CompanyNotFoundException.class, () -> noteService.create(request(companyId, null, null, null, "Title", "Body")));
-        assertThrows(ContactNotFoundException.class, () -> noteService.create(request(null, contactId, null, null, "Title", "Body")));
-        assertThrows(LeadNotFoundException.class, () -> noteService.create(request(null, null, leadId, null, "Title", "Body")));
-        assertThrows(OpportunityNotFoundException.class, () -> noteService.create(request(null, null, null, opportunityId, "Title", "Body")));
+        assertThrows(CompanyNotFoundException.class, () -> noteService.create(TestOrganization.ID, request(companyId, null, null, null, "Title", "Body")));
+        assertThrows(ContactNotFoundException.class, () -> noteService.create(TestOrganization.ID, request(null, contactId, null, null, "Title", "Body")));
+        assertThrows(LeadNotFoundException.class, () -> noteService.create(TestOrganization.ID, request(null, null, leadId, null, "Title", "Body")));
+        assertThrows(OpportunityNotFoundException.class, () -> noteService.create(TestOrganization.ID, request(null, null, null, opportunityId, "Title", "Body")));
         verify(noteRepository, never()).save(any());
-        verify(companyRepository).findByIdAndArchivedFalse(companyId);
-        verify(contactRepository).findByIdAndArchivedFalse(contactId);
-        verify(leadRepository).findByIdAndArchivedFalse(leadId);
-        verify(opportunityRepository).findByIdAndArchivedFalse(opportunityId);
+        verify(companyRepository).findByIdAndOrganization_IdAndArchivedFalse(companyId, TestOrganization.ID);
+        verify(contactRepository).findByIdAndOrganization_IdAndArchivedFalse(contactId, TestOrganization.ID);
+        verify(leadRepository).findByIdAndOrganization_IdAndArchivedFalse(leadId, TestOrganization.ID);
+        verify(opportunityRepository).findByIdAndOrganization_IdAndArchivedFalse(opportunityId, TestOrganization.ID);
     }
 
     @Test
@@ -95,14 +98,14 @@ class NoteServiceTest {
         UUID id = UUID.randomUUID();
         UUID companyId = UUID.randomUUID();
         UUID contactId = UUID.randomUUID();
-        Note note = new Note(company(companyId), null, null, null, "Before", "Old body");
-        when(noteRepository.findByIdAndArchivedFalse(id)).thenReturn(Optional.of(note));
+        Note note = new Note(new com.wautech.crm.organization.entity.Organization("Test Organization"), company(companyId), null, null, null, "Before", "Old body");
+        when(noteRepository.findByIdAndOrganization_IdAndArchivedFalse(id, TestOrganization.ID)).thenReturn(Optional.of(note));
         Contact parentContact = contact(contactId);
-        when(contactRepository.findByIdAndArchivedFalse(contactId)).thenReturn(Optional.of(parentContact));
+        when(contactRepository.findByIdAndOrganization_IdAndArchivedFalse(contactId, TestOrganization.ID)).thenReturn(Optional.of(parentContact));
         when(noteRepository.save(note)).thenReturn(note);
 
-        assertEquals("Before", noteService.getById(id).title());
-        NoteResponse updated = noteService.update(id, request(null, contactId, null, null, "After", "New body"));
+        assertEquals("Before", noteService.getById(TestOrganization.ID, id).title());
+        NoteResponse updated = noteService.update(TestOrganization.ID, id, request(null, contactId, null, null, "After", "New body"));
 
         assertEquals("After", updated.title());
         assertEquals("New body", updated.body());
@@ -114,12 +117,12 @@ class NoteServiceTest {
     void rejectsUpdatingNoteToMissingOrArchivedParent() {
         UUID id = UUID.randomUUID();
         UUID companyId = UUID.randomUUID();
-        Note note = new Note(null, null, null, opportunity(UUID.randomUUID()), "Before", "Body");
-        when(noteRepository.findByIdAndArchivedFalse(id)).thenReturn(Optional.of(note));
-        when(companyRepository.findByIdAndArchivedFalse(companyId)).thenReturn(Optional.empty());
+        Note note = new Note(new com.wautech.crm.organization.entity.Organization("Test Organization"), null, null, null, opportunity(UUID.randomUUID()), "Before", "Body");
+        when(noteRepository.findByIdAndOrganization_IdAndArchivedFalse(id, TestOrganization.ID)).thenReturn(Optional.of(note));
+        when(companyRepository.findByIdAndOrganization_IdAndArchivedFalse(companyId, TestOrganization.ID)).thenReturn(Optional.empty());
 
         assertThrows(CompanyNotFoundException.class,
-                () -> noteService.update(id, request(companyId, null, null, null, "After", "Body")));
+                () -> noteService.update(TestOrganization.ID, id, request(companyId, null, null, null, "After", "Body")));
         verify(noteRepository, never()).save(any());
     }
 
@@ -129,44 +132,44 @@ class NoteServiceTest {
         UUID contactId = UUID.randomUUID();
         UUID leadId = UUID.randomUUID();
         UUID opportunityId = UUID.randomUUID();
-        Note newer = new Note(company(companyId), null, null, null, "Newer", "Body");
-        Note older = new Note(null, contact(contactId), null, null, "Older", "Body");
-        when(noteRepository.findActive(companyId, contactId, leadId, opportunityId)).thenReturn(List.of(newer, older));
+        Note newer = new Note(new com.wautech.crm.organization.entity.Organization("Test Organization"), company(companyId), null, null, null, "Newer", "Body");
+        Note older = new Note(new com.wautech.crm.organization.entity.Organization("Test Organization"), null, contact(contactId), null, null, "Older", "Body");
+        when(noteRepository.findActive(TestOrganization.ID, companyId, contactId, leadId, opportunityId)).thenReturn(List.of(newer, older));
 
-        List<NoteResponse> results = noteService.listActive(companyId, contactId, leadId, opportunityId);
+        List<NoteResponse> results = noteService.listActive(TestOrganization.ID, companyId, contactId, leadId, opportunityId);
 
         assertEquals(List.of("Newer", "Older"), results.stream().map(NoteResponse::title).toList());
-        verify(noteRepository).findActive(companyId, contactId, leadId, opportunityId);
+        verify(noteRepository).findActive(TestOrganization.ID, companyId, contactId, leadId, opportunityId);
     }
 
     @Test
     void missingOrArchivedNoteCannotBeReadUpdatedOrArchivedAgain() {
         UUID id = UUID.randomUUID();
-        when(noteRepository.findByIdAndArchivedFalse(id)).thenReturn(Optional.empty());
+        when(noteRepository.findByIdAndOrganization_IdAndArchivedFalse(id, TestOrganization.ID)).thenReturn(Optional.empty());
         NoteRequest request = request(UUID.randomUUID(), null, null, null, "Title", "Body");
 
-        assertThrows(NoteNotFoundException.class, () -> noteService.getById(id));
-        assertThrows(NoteNotFoundException.class, () -> noteService.update(id, request));
-        assertThrows(NoteNotFoundException.class, () -> noteService.archive(id));
+        assertThrows(NoteNotFoundException.class, () -> noteService.getById(TestOrganization.ID, id));
+        assertThrows(NoteNotFoundException.class, () -> noteService.update(TestOrganization.ID, id, request));
+        assertThrows(NoteNotFoundException.class, () -> noteService.archive(TestOrganization.ID, id));
         verifyNoInteractions(companyRepository, contactRepository, leadRepository, opportunityRepository);
     }
 
     @Test
     void activeListUsesRepositoryContractThatExcludesArchivedNotes() {
-        when(noteRepository.findActive(null, null, null, null)).thenReturn(List.of());
+        when(noteRepository.findActive(TestOrganization.ID, null, null, null, null)).thenReturn(List.of());
 
-        assertTrue(noteService.listActive(null, null, null, null).isEmpty());
-        verify(noteRepository).findActive(null, null, null, null);
+        assertTrue(noteService.listActive(TestOrganization.ID, null, null, null, null).isEmpty());
+        verify(noteRepository).findActive(TestOrganization.ID, null, null, null, null);
     }
 
     @Test
     void archiveSoftDeletesAndUpdatesTimestamp() {
         UUID id = UUID.randomUUID();
-        Note note = new Note(company(UUID.randomUUID()), null, null, null, "Title", "Body");
-        when(noteRepository.findByIdAndArchivedFalse(id)).thenReturn(Optional.of(note));
+        Note note = new Note(new com.wautech.crm.organization.entity.Organization("Test Organization"), company(UUID.randomUUID()), null, null, null, "Title", "Body");
+        when(noteRepository.findByIdAndOrganization_IdAndArchivedFalse(id, TestOrganization.ID)).thenReturn(Optional.of(note));
         when(noteRepository.save(note)).thenReturn(note);
 
-        noteService.archive(id);
+        noteService.archive(TestOrganization.ID, id);
 
         assertTrue(note.isArchived());
         assertNotNull(note.getUpdatedAt());
@@ -199,5 +202,17 @@ class NoteServiceTest {
 
     private NoteRequest request(UUID companyId, UUID contactId, UUID leadId, UUID opportunityId, String title, String body) {
         return new NoteRequest(companyId, contactId, leadId, opportunityId, title, body);
+    }
+
+    @Test
+    void anotherOrganizationCannotReadNoteById() {
+        UUID noteId = UUID.randomUUID();
+        UUID otherOrganizationId = UUID.randomUUID();
+        when(noteRepository.findByIdAndOrganization_IdAndArchivedFalse(noteId, otherOrganizationId))
+                .thenReturn(Optional.empty());
+
+        assertThrows(NoteNotFoundException.class, () -> noteService.getById(otherOrganizationId, noteId));
+
+        verify(noteRepository).findByIdAndOrganization_IdAndArchivedFalse(noteId, otherOrganizationId);
     }
 }

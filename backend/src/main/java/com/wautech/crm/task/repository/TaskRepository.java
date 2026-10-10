@@ -13,7 +13,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface TaskRepository extends JpaRepository<Task, UUID> {
-    @Query("select t from Task t where t.archived = false " +
+    @Query("select t from Task t where t.organization.id = :organizationId and t.archived = false " +
             "and (:companyId is null or t.company.id = :companyId) " +
             "and (:contactId is null or t.contact.id = :contactId) " +
             "and (:leadId is null or t.lead.id = :leadId) " +
@@ -31,7 +31,8 @@ public interface TaskRepository extends JpaRepository<Task, UUID> {
             "t.status not in (com.wautech.crm.task.entity.TaskStatus.OPEN, " +
             "com.wautech.crm.task.entity.TaskStatus.IN_PROGRESS)))) " +
             "order by case when t.dueAt is null then 1 else 0 end asc, t.dueAt asc, t.createdAt desc")
-    List<Task> findActive(@Param("companyId") UUID companyId,
+    List<Task> findActive(@Param("organizationId") UUID organizationId,
+                          @Param("companyId") UUID companyId,
                           @Param("contactId") UUID contactId,
                           @Param("leadId") UUID leadId,
                           @Param("opportunityId") UUID opportunityId,
@@ -43,12 +44,5 @@ public interface TaskRepository extends JpaRepository<Task, UUID> {
                           @Param("search") String search,
                           @Param("now") Instant now);
 
-    default List<Task> findActive(UUID companyId, UUID contactId, UUID leadId, UUID opportunityId,
-                                  TaskStatus status, TaskPriority priority, Instant dueBefore, Instant dueAfter,
-                                  Boolean overdue, Instant now) {
-        return findActive(companyId, contactId, leadId, opportunityId, status, priority, dueBefore, dueAfter,
-                overdue, null, now);
-    }
-
-    Optional<Task> findByIdAndArchivedFalse(UUID id);
+    Optional<Task> findByIdAndOrganization_IdAndArchivedFalse(UUID id, UUID organizationId);
 }
