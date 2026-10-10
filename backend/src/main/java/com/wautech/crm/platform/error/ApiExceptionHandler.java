@@ -14,6 +14,11 @@ import com.wautech.crm.task.entity.IllegalTaskStatusTransitionException;
 import com.wautech.crm.task.service.TaskNotFoundException;
 import com.wautech.crm.savedview.service.SavedViewNotFoundException;
 import com.wautech.crm.organization.service.OrganizationNotFoundException;
+import com.wautech.crm.organization.service.OrganizationMembershipNotFoundException;
+import com.wautech.crm.organization.service.DuplicateOrganizationMembershipException;
+import com.wautech.crm.identity.service.UserNotFoundException;
+import com.wautech.crm.identity.service.DuplicateUserEmailException;
+import com.wautech.crm.identity.service.DisabledUserException;
 import com.wautech.crm.platform.tenant.OrganizationContextUnavailableException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
@@ -28,6 +33,22 @@ public class ApiExceptionHandler {
     @ExceptionHandler(OrganizationNotFoundException.class)
     ProblemDetail handleOrganizationNotFound(OrganizationNotFoundException exception) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, exception.getMessage());
+    }
+
+    @ExceptionHandler({UserNotFoundException.class, OrganizationMembershipNotFoundException.class})
+    ProblemDetail handleIdentityNotFound(RuntimeException exception) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, exception.getMessage());
+    }
+
+    @ExceptionHandler({DuplicateUserEmailException.class, DuplicateOrganizationMembershipException.class,
+            DisabledUserException.class})
+    ProblemDetail handleIdentityConflict(RuntimeException exception) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, exception.getMessage());
+    }
+
+    @ExceptionHandler(com.wautech.crm.organization.entity.IllegalMembershipTransitionException.class)
+    ProblemDetail handleIllegalMembershipTransition(RuntimeException exception) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, exception.getMessage());
     }
 
     @ExceptionHandler(OrganizationContextUnavailableException.class)
