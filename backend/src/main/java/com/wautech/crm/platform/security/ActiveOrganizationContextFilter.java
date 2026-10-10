@@ -39,7 +39,13 @@ public class ActiveOrganizationContextFilter extends OncePerRequestFilter {
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String path = request.getRequestURI().substring(request.getContextPath().length());
-        return !path.startsWith("/api/") || path.equals("/api/health") || path.startsWith("/api/auth/");
+        if (path.equals("/api/health") || path.startsWith("/api/health/") || path.startsWith("/api/auth/")) {
+            return true;
+        }
+        if (path.equals("/actuator/health/liveness") || path.equals("/actuator/health/readiness")) {
+            return true;
+        }
+        return !path.startsWith("/api/") && !path.startsWith("/actuator/");
     }
 
     @Override
