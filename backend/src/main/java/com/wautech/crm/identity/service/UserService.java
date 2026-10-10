@@ -56,5 +56,7 @@ public class UserService {
         }
     }
 
-    private String normalizeEmail(String email) { return email.trim().toLowerCase(Locale.ROOT); }
+    private String normalizeEmail(String email) {
+        return email.trim().toLowerCase(Locale.ROOT);
+    }
 }

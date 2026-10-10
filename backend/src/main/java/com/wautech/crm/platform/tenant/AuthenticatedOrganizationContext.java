@@ -6,7 +6,7 @@ import org.springframework.web.context.annotation.RequestScope;
 
 import java.util.UUID;
 
-/** Reads only the server-populated request attribute planned for the authentication feature. */
+/** Reads only the request attribute populated after authentication and membership validation. */
 @Component
 @RequestScope
 public class AuthenticatedOrganizationContext {

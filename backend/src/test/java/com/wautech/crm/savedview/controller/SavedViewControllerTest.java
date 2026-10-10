@@ -1,6 +1,8 @@
 package com.wautech.crm.savedview.controller;
 
 import com.wautech.crm.platform.tenant.AuthenticatedOrganizationContext;
+import com.wautech.crm.platform.security.SecurityMvcTestSupport;
+import com.wautech.crm.platform.security.TenantMvcTestConfiguration;
 import com.wautech.crm.TestOrganization;
 import com.wautech.crm.savedview.dto.SavedViewResponse;
 import com.wautech.crm.savedview.entity.SavedViewResource;
@@ -10,6 +12,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.Instant;
@@ -27,7 +30,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(SavedViewController.class)
-class SavedViewControllerTest {
+@Import(TenantMvcTestConfiguration.class)
+class SavedViewControllerTest extends SecurityMvcTestSupport {
     @MockitoBean private AuthenticatedOrganizationContext organizationContext;
     @BeforeEach
     void organizationContextUsesTestOrganization() {

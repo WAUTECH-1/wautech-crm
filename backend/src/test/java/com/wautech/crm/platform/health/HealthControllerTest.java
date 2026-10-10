@@ -1,8 +1,11 @@
 package com.wautech.crm.platform.health;
 
+import com.wautech.crm.platform.security.SecurityMvcTestSupport;
+import com.wautech.crm.platform.security.SecurityConfiguration;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -10,7 +13,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(HealthController.class)
-class HealthControllerTest {
+@Import(SecurityConfiguration.class)
+class HealthControllerTest extends SecurityMvcTestSupport {
     @Autowired
     private MockMvc mockMvc;
 

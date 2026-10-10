@@ -19,6 +19,7 @@ import com.wautech.crm.organization.service.DuplicateOrganizationMembershipExcep
 import com.wautech.crm.identity.service.UserNotFoundException;
 import com.wautech.crm.identity.service.DuplicateUserEmailException;
 import com.wautech.crm.identity.service.DisabledUserException;
+import com.wautech.crm.identity.service.InvalidCredentialsException;
 import com.wautech.crm.platform.tenant.OrganizationContextUnavailableException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
@@ -44,6 +45,11 @@ public class ApiExceptionHandler {
             DisabledUserException.class})
     ProblemDetail handleIdentityConflict(RuntimeException exception) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, exception.getMessage());
+    }
+
+    @ExceptionHandler(InvalidCredentialsException.class)
+    ProblemDetail handleInvalidCredentials(InvalidCredentialsException exception) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.UNAUTHORIZED, "Invalid email or password");
     }
 
     @ExceptionHandler(com.wautech.crm.organization.entity.IllegalMembershipTransitionException.class)
