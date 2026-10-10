@@ -7,6 +7,7 @@ import com.wautech.crm.savedview.entity.SavedView;
 import com.wautech.crm.savedview.repository.SavedViewRepository;
 import com.wautech.crm.organization.entity.Organization;
 import com.wautech.crm.organization.service.OrganizationService;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,6 +27,7 @@ public class SavedViewService {
         this.organizationService = organizationService;
     }
 
+    @PreAuthorize("@crmAuthorization.canWrite(#p0)")
     public SavedViewResponse create(UUID organizationId, SavedViewRequest request) {
         Organization organization = organizationService.requireActiveOrganization(organizationId);
         validate(request);
@@ -35,6 +37,7 @@ public class SavedViewService {
     }
 
     @Transactional(readOnly = true)
+    @PreAuthorize("@crmAuthorization.canView(#p0)")
     public List<SavedViewResponse> listActive(UUID organizationId) {
         organizationService.requireActiveOrganization(organizationId);
         return repository.findAllByOrganization_IdAndArchivedFalseOrderByNameAscIdAsc(organizationId).stream()
@@ -42,11 +45,13 @@ public class SavedViewService {
     }
 
     @Transactional(readOnly = true)
+    @PreAuthorize("@crmAuthorization.canView(#p0)")
     public SavedViewResponse getById(UUID organizationId, UUID id) {
         organizationService.requireActiveOrganization(organizationId);
         return SavedViewResponse.from(findActive(organizationId, id));
     }
 
+    @PreAuthorize("@crmAuthorization.canWrite(#p0)")
     public SavedViewResponse update(UUID organizationId, UUID id, SavedViewRequest request) {
         organizationService.requireActiveOrganization(organizationId);
         validate(request);
@@ -56,6 +61,7 @@ public class SavedViewService {
         return SavedViewResponse.from(repository.save(view));
     }
 
+    @PreAuthorize("@crmAuthorization.canWrite(#p0)")
     public void archive(UUID organizationId, UUID id) {
         organizationService.requireActiveOrganization(organizationId);
         SavedView view = findActive(organizationId, id);

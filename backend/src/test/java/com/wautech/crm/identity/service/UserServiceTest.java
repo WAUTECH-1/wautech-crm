@@ -3,6 +3,12 @@ package com.wautech.crm.identity.service;
 import com.wautech.crm.identity.dto.UserProfileRequest;
 import com.wautech.crm.identity.entity.User;
 import com.wautech.crm.identity.repository.UserRepository;
+import com.wautech.crm.organization.entity.MembershipStatus;
+import com.wautech.crm.organization.entity.Organization;
+import com.wautech.crm.organization.entity.OrganizationMembership;
+import com.wautech.crm.organization.entity.OrganizationRole;
+import com.wautech.crm.organization.repository.OrganizationMembershipRepository;
+import com.wautech.crm.organization.repository.OrganizationRepository;
 import jakarta.validation.Validation;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -20,6 +26,8 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class UserServiceTest {
     @Mock private UserRepository repository;
+    @Mock private OrganizationMembershipRepository membershipRepository;
+    @Mock private OrganizationRepository organizationRepository;
     @InjectMocks private UserService service;
 
     @Test
@@ -63,6 +71,27 @@ class UserServiceTest {
         UUID id = UUID.randomUUID();
         when(repository.findById(id)).thenReturn(Optional.empty());
         assertThrows(UserNotFoundException.class, () -> service.getById(id));
+    }
+
+    @Test
+    void cannotDisableTheOnlyActiveOwnerOfAnActiveOrganization() {
+        UUID userId = UUID.randomUUID();
+        UUID organizationId = UUID.randomUUID();
+        User user = new User("owner@example.com", "Org", "Owner");
+        Organization organization = mock(Organization.class);
+        when(organization.getId()).thenReturn(organizationId);
+        OrganizationMembership owner = new OrganizationMembership(organization, user);
+        owner.transitionTo(MembershipStatus.ACTIVE);
+        owner.changeRole(OrganizationRole.OWNER);
+        when(membershipRepository.findAllByUser_IdAndStatusAndRole(userId, MembershipStatus.ACTIVE, OrganizationRole.OWNER))
+                .thenReturn(java.util.List.of(owner));
+        when(organizationRepository.lockByIdAndArchivedFalse(organizationId)).thenReturn(Optional.of(organization));
+        when(membershipRepository.countByOrganization_IdAndStatusAndRole(
+                organizationId, MembershipStatus.ACTIVE, OrganizationRole.OWNER)).thenReturn(1L);
+
+        assertThrows(com.wautech.crm.organization.service.LastOrganizationOwnerException.class,
+                () -> service.setEnabled(userId, false));
+        verify(repository, never()).save(any());
     }
 
     @Test

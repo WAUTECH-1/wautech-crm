@@ -15,6 +15,7 @@ import com.wautech.crm.organization.entity.Organization;
 import com.wautech.crm.organization.service.OrganizationService;
 import com.wautech.crm.platform.search.ListSort;
 import com.wautech.crm.platform.search.SearchText;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -40,6 +41,7 @@ public class OpportunityService {
         this.organizationService = organizationService;
     }
 
+    @PreAuthorize("@crmAuthorization.canWrite(#p0)")
     public OpportunityResponse create(UUID organizationId, OpportunityRequest request) {
         Organization organization = organizationService.requireActiveOrganization(organizationId);
         Company company = findActiveCompany(organizationId, request.companyId());
@@ -50,6 +52,7 @@ public class OpportunityService {
     }
 
     @Transactional(readOnly = true)
+    @PreAuthorize("@crmAuthorization.canView(#p0)")
     public List<OpportunityResponse> listActive(UUID organizationId, UUID companyId, UUID contactId, OpportunityStage stage) {
         organizationService.requireActiveOrganization(organizationId);
         return opportunityRepository.findActive(organizationId, companyId, contactId, stage, null)
@@ -57,6 +60,7 @@ public class OpportunityService {
     }
 
     @Transactional(readOnly = true)
+    @PreAuthorize("@crmAuthorization.canView(#p0)")
     public List<OpportunityResponse> listActive(UUID organizationId, UUID companyId, UUID contactId, OpportunityStage stage,
                                                 String search, String sortBy, String sortDirection) {
         organizationService.requireActiveOrganization(organizationId);
@@ -67,11 +71,13 @@ public class OpportunityService {
     }
 
     @Transactional(readOnly = true)
+    @PreAuthorize("@crmAuthorization.canView(#p0)")
     public OpportunityResponse getById(UUID organizationId, UUID id) {
         organizationService.requireActiveOrganization(organizationId);
         return OpportunityResponse.from(findActiveOpportunity(organizationId, id));
     }
 
+    @PreAuthorize("@crmAuthorization.canWrite(#p0)")
     public OpportunityResponse update(UUID organizationId, UUID id, OpportunityRequest request) {
         organizationService.requireActiveOrganization(organizationId);
         Opportunity opportunity = findActiveOpportunity(organizationId, id);
@@ -82,6 +88,7 @@ public class OpportunityService {
         return OpportunityResponse.from(opportunityRepository.save(opportunity));
     }
 
+    @PreAuthorize("@crmAuthorization.canWrite(#p0)")
     public OpportunityResponse changeStage(UUID organizationId, UUID id, OpportunityStage stage) {
         organizationService.requireActiveOrganization(organizationId);
         Opportunity opportunity = findActiveOpportunity(organizationId, id);
@@ -89,6 +96,7 @@ public class OpportunityService {
         return OpportunityResponse.from(opportunityRepository.save(opportunity));
     }
 
+    @PreAuthorize("@crmAuthorization.canWrite(#p0)")
     public void archive(UUID organizationId, UUID id) {
         organizationService.requireActiveOrganization(organizationId);
         Opportunity opportunity = findActiveOpportunity(organizationId, id);

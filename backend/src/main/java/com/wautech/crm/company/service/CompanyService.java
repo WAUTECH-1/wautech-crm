@@ -8,6 +8,7 @@ import com.wautech.crm.organization.entity.Organization;
 import com.wautech.crm.organization.service.OrganizationService;
 import com.wautech.crm.platform.search.ListSort;
 import com.wautech.crm.platform.search.SearchText;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,6 +29,7 @@ public class CompanyService {
         this.organizationService = organizationService;
     }
 
+    @PreAuthorize("@crmAuthorization.canWrite(#p0)")
     public CompanyResponse create(UUID organizationId, CompanyRequest request) {
         Organization organization = organizationService.requireActiveOrganization(organizationId);
         Company company = new Company(organization, request.name().trim(), request.website(), request.industry(),
@@ -36,6 +38,7 @@ public class CompanyService {
     }
 
     @Transactional(readOnly = true)
+    @PreAuthorize("@crmAuthorization.canView(#p0)")
     public List<CompanyResponse> listActive(UUID organizationId) {
         organizationService.requireActiveOrganization(organizationId);
         return companyRepository.findAllByOrganization_IdAndArchivedFalseOrderByCreatedAtDesc(organizationId).stream()
@@ -43,6 +46,7 @@ public class CompanyService {
     }
 
     @Transactional(readOnly = true)
+    @PreAuthorize("@crmAuthorization.canView(#p0)")
     public List<CompanyResponse> listActive(UUID organizationId, String search, String sortBy, String sortDirection) {
         organizationService.requireActiveOrganization(organizationId);
         var rows = new ArrayList<>(companyRepository.findActive(organizationId, SearchText.containsPattern(search)));
@@ -53,11 +57,13 @@ public class CompanyService {
     }
 
     @Transactional(readOnly = true)
+    @PreAuthorize("@crmAuthorization.canView(#p0)")
     public CompanyResponse getById(UUID organizationId, UUID id) {
         organizationService.requireActiveOrganization(organizationId);
         return CompanyResponse.from(findActiveCompany(organizationId, id));
     }
 
+    @PreAuthorize("@crmAuthorization.canWrite(#p0)")
     public CompanyResponse update(UUID organizationId, UUID id, CompanyRequest request) {
         organizationService.requireActiveOrganization(organizationId);
         Company company = findActiveCompany(organizationId, id);
@@ -66,6 +72,7 @@ public class CompanyService {
         return CompanyResponse.from(companyRepository.save(company));
     }
 
+    @PreAuthorize("@crmAuthorization.canWrite(#p0)")
     public void archive(UUID organizationId, UUID id) {
         organizationService.requireActiveOrganization(organizationId);
         Company company = findActiveCompany(organizationId, id);

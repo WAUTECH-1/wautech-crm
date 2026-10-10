@@ -20,6 +20,7 @@ import com.wautech.crm.platform.search.ListSort;
 import com.wautech.crm.platform.search.SearchText;
 import com.wautech.crm.organization.entity.Organization;
 import com.wautech.crm.organization.service.OrganizationService;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -50,6 +51,7 @@ public class NoteService {
         this.organizationService = organizationService;
     }
 
+    @PreAuthorize("@crmAuthorization.canWrite(#p0)")
     public NoteResponse create(UUID organizationId, NoteRequest request) {
         Organization organization = organizationService.requireActiveOrganization(organizationId);
         ParentRecords parents = findParents(organizationId, request);
@@ -59,6 +61,7 @@ public class NoteService {
     }
 
     @Transactional(readOnly = true)
+    @PreAuthorize("@crmAuthorization.canView(#p0)")
     public List<NoteResponse> listActive(UUID organizationId, UUID companyId, UUID contactId, UUID leadId, UUID opportunityId) {
         organizationService.requireActiveOrganization(organizationId);
         return noteRepository.findActive(organizationId, companyId, contactId, leadId, opportunityId)
@@ -66,6 +69,7 @@ public class NoteService {
     }
 
     @Transactional(readOnly = true)
+    @PreAuthorize("@crmAuthorization.canView(#p0)")
     public List<NoteResponse> listActive(UUID organizationId, UUID companyId, UUID contactId, UUID leadId, UUID opportunityId,
                                         String search, String sortBy, String sortDirection) {
         organizationService.requireActiveOrganization(organizationId);
@@ -76,11 +80,13 @@ public class NoteService {
     }
 
     @Transactional(readOnly = true)
+    @PreAuthorize("@crmAuthorization.canView(#p0)")
     public NoteResponse getById(UUID organizationId, UUID id) {
         organizationService.requireActiveOrganization(organizationId);
         return NoteResponse.from(findActiveNote(organizationId, id));
     }
 
+    @PreAuthorize("@crmAuthorization.canWrite(#p0)")
     public NoteResponse update(UUID organizationId, UUID id, NoteRequest request) {
         organizationService.requireActiveOrganization(organizationId);
         Note note = findActiveNote(organizationId, id);
@@ -90,6 +96,7 @@ public class NoteService {
         return NoteResponse.from(noteRepository.save(note));
     }
 
+    @PreAuthorize("@crmAuthorization.canWrite(#p0)")
     public void archive(UUID organizationId, UUID id) {
         organizationService.requireActiveOrganization(organizationId);
         Note note = findActiveNote(organizationId, id);

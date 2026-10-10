@@ -7,7 +7,9 @@ import com.wautech.crm.organization.entity.IllegalMembershipTransitionException;
 import com.wautech.crm.organization.entity.MembershipStatus;
 import com.wautech.crm.organization.entity.Organization;
 import com.wautech.crm.organization.entity.OrganizationMembership;
+import com.wautech.crm.organization.entity.OrganizationRole;
 import com.wautech.crm.organization.repository.OrganizationMembershipRepository;
+import com.wautech.crm.platform.security.CrmAuthorization;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -27,6 +29,7 @@ class OrganizationMembershipServiceTest {
     @Mock private OrganizationMembershipRepository membershipRepository;
     @Mock private OrganizationService organizationService;
     @Mock private UserService userService;
+    @Mock private CrmAuthorization authorization;
     @InjectMocks private OrganizationMembershipService service;
 
     private final UUID organizationId = UUID.randomUUID();
@@ -43,7 +46,7 @@ class OrganizationMembershipServiceTest {
     @Test
     void createsInvitedMembershipAndRejectsDuplicate() {
         stubEntityIds();
-        when(organizationService.requireActiveOrganization(organizationId)).thenReturn(organization);
+        when(organizationService.lockActiveOrganization(organizationId)).thenReturn(organization);
         when(userService.requireUser(userId)).thenReturn(user);
         when(membershipRepository.existsByOrganization_IdAndUser_Id(organizationId, userId)).thenReturn(false, true);
         when(membershipRepository.save(any(OrganizationMembership.class))).thenAnswer(call -> call.getArgument(0));
@@ -51,6 +54,7 @@ class OrganizationMembershipServiceTest {
         var response = service.create(organizationId, userId);
 
         assertEquals(MembershipStatus.INVITED, response.status());
+        assertEquals(OrganizationRole.VIEWER, response.role());
         assertEquals(organizationId, response.organizationId());
         assertThrows(DuplicateOrganizationMembershipException.class, () -> service.create(organizationId, userId));
     }
@@ -100,7 +104,7 @@ class OrganizationMembershipServiceTest {
 
     @Test
     void archivedOrganizationCannotReceiveMembershipOrTransition() {
-        when(organizationService.requireActiveOrganization(organizationId))
+        when(organizationService.lockActiveOrganization(organizationId))
                 .thenThrow(new OrganizationNotFoundException(organizationId));
         assertThrows(OrganizationNotFoundException.class, () -> service.create(organizationId, userId));
         assertThrows(OrganizationNotFoundException.class,
@@ -126,8 +130,86 @@ class OrganizationMembershipServiceTest {
         verify(membershipRepository).findAllByOrganization_IdAndUser_IdOrderByCreatedAtDesc(organizationId, userId);
     }
 
+    @Test
+    void preventsSuspendingTheFinalActiveOwner() {
+        stubUserId();
+        OrganizationMembership owner = new OrganizationMembership(organization, user);
+        owner.transitionTo(MembershipStatus.ACTIVE);
+        owner.changeRole(OrganizationRole.OWNER);
+        prepareMembership(owner);
+        when(membershipRepository.countByOrganization_IdAndStatusAndRole(
+                organizationId, MembershipStatus.ACTIVE, OrganizationRole.OWNER)).thenReturn(1L);
+
+        assertThrows(LastOrganizationOwnerException.class,
+                () -> service.transition(organizationId, UUID.randomUUID(), MembershipStatus.SUSPENDED));
+        verify(membershipRepository, never()).save(any());
+    }
+
+    @Test
+    void transfersOwnershipAtomicallyAndDemotesTheCurrentOwner() {
+        UUID otherUserId = UUID.randomUUID();
+        UUID targetMembershipId = UUID.randomUUID();
+        stubUserId();
+        when(authorization.currentUserId()).thenReturn(userId);
+
+        OrganizationMembership currentOwner = new OrganizationMembership(organization, user);
+        currentOwner.transitionTo(MembershipStatus.ACTIVE);
+        currentOwner.changeRole(OrganizationRole.OWNER);
+        when(membershipRepository.findByOrganization_IdAndUser_IdAndStatus(
+                organizationId, userId, MembershipStatus.ACTIVE)).thenReturn(Optional.of(currentOwner));
+
+        User targetUser = mock(User.class);
+        when(targetUser.getId()).thenReturn(otherUserId);
+        when(userService.requireEnabledUser(otherUserId)).thenReturn(targetUser);
+        OrganizationMembership target = new OrganizationMembership(organization, targetUser);
+        target.transitionTo(MembershipStatus.ACTIVE);
+        when(membershipRepository.findByIdAndOrganization_Id(targetMembershipId, organizationId)).thenReturn(Optional.of(target));
+        when(membershipRepository.save(any(OrganizationMembership.class))).thenAnswer(call -> call.getArgument(0));
+
+        var response = service.transferOwnership(organizationId, targetMembershipId);
+
+        assertEquals(OrganizationRole.ADMIN, currentOwner.getRole());
+        assertEquals(OrganizationRole.OWNER, target.getRole());
+        assertEquals(OrganizationRole.OWNER, response.role());
+        verify(membershipRepository).save(currentOwner);
+        verify(membershipRepository).save(target);
+    }
+
+    @Test
+    void adminCannotChangeAnOwnersStatusOrRole() {
+        stubUserId();
+        OrganizationMembership owner = new OrganizationMembership(organization, user);
+        owner.transitionTo(MembershipStatus.ACTIVE);
+        owner.changeRole(OrganizationRole.OWNER);
+        prepareMembership(owner);
+        when(authorization.roleForCurrentUser(organizationId)).thenReturn(Optional.of(OrganizationRole.ADMIN));
+
+        assertThrows(OrganizationRoleChangeNotAllowedException.class,
+                () -> service.transition(organizationId, UUID.randomUUID(), MembershipStatus.REVOKED));
+        assertThrows(OrganizationRoleChangeNotAllowedException.class,
+                () -> service.changeRole(organizationId, UUID.randomUUID(), OrganizationRole.SALES_USER));
+        verify(membershipRepository, never()).save(any());
+    }
+
+    @Test
+    void memberCannotChangeTheirOwnRole() {
+        stubUserId();
+        OrganizationMembership member = new OrganizationMembership(organization, user);
+        member.transitionTo(MembershipStatus.ACTIVE);
+        member.changeRole(OrganizationRole.SALES_USER);
+        prepareMembership(member);
+        when(authorization.roleForCurrentUser(organizationId)).thenReturn(Optional.of(OrganizationRole.OWNER));
+        when(authorization.currentUserId()).thenReturn(userId);
+
+        assertThrows(OrganizationRoleChangeNotAllowedException.class,
+                () -> service.changeRole(organizationId, UUID.randomUUID(), OrganizationRole.ADMIN));
+        verify(membershipRepository, never()).save(any());
+    }
+
     private void prepareMembership(OrganizationMembership membership) {
-        when(organizationService.requireActiveOrganization(organizationId)).thenReturn(organization);
+        lenient().when(organizationService.requireActiveOrganization(organizationId)).thenReturn(organization);
+        lenient().when(organizationService.lockActiveOrganization(organizationId)).thenReturn(organization);
+        lenient().when(authorization.roleForCurrentUser(organizationId)).thenReturn(Optional.of(OrganizationRole.OWNER));
         when(membershipRepository.findByIdAndOrganization_Id(any(), eq(organizationId))).thenReturn(Optional.of(membership));
         lenient().when(membershipRepository.save(membership)).thenReturn(membership);
         lenient().when(membershipRepository.existsByOrganization_IdAndUser_IdAndStatus(organizationId, userId, MembershipStatus.ACTIVE))
@@ -140,6 +222,6 @@ class OrganizationMembershipServiceTest {
     }
 
     private void stubUserId() {
-        when(user.getId()).thenReturn(userId);
+        lenient().when(user.getId()).thenReturn(userId);
     }
 }
