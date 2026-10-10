@@ -6,6 +6,7 @@ import com.wautech.crm.opportunity.repository.OpportunityRepository;
 import com.wautech.crm.pipeline.dto.PipelineResponse;
 import com.wautech.crm.pipeline.dto.PipelineStageSummary;
 import com.wautech.crm.organization.service.OrganizationService;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,6 +28,7 @@ public class PipelineService {
     }
 
     @Transactional(readOnly = true)
+    @PreAuthorize("@crmAuthorization.canView(#p0)")
     public PipelineResponse getPipeline(UUID organizationId, UUID companyId, UUID contactId) {
         organizationService.requireActiveOrganization(organizationId);
         Map<OpportunityStage, StageTotals> totalsByStage = new EnumMap<>(OpportunityStage.class);

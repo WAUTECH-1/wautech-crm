@@ -11,6 +11,7 @@ import com.wautech.crm.organization.entity.Organization;
 import com.wautech.crm.organization.service.OrganizationService;
 import com.wautech.crm.platform.search.ListSort;
 import com.wautech.crm.platform.search.SearchText;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -34,6 +35,7 @@ public class ContactService {
         this.organizationService = organizationService;
     }
 
+    @PreAuthorize("@crmAuthorization.canWrite(#p0)")
     public ContactResponse create(UUID organizationId, ContactRequest request) {
         Organization organization = organizationService.requireActiveOrganization(organizationId);
         Company company = findActiveCompany(organizationId, request.companyId());
@@ -43,6 +45,7 @@ public class ContactService {
     }
 
     @Transactional(readOnly = true)
+    @PreAuthorize("@crmAuthorization.canView(#p0)")
     public List<ContactResponse> listActive(UUID organizationId, UUID companyId) {
         organizationService.requireActiveOrganization(organizationId);
         List<Contact> contacts;
@@ -55,6 +58,7 @@ public class ContactService {
     }
 
     @Transactional(readOnly = true)
+    @PreAuthorize("@crmAuthorization.canView(#p0)")
     public List<ContactResponse> listActive(UUID organizationId, UUID companyId, String search, String sortBy, String sortDirection) {
         organizationService.requireActiveOrganization(organizationId);
         List<Contact> contacts = new ArrayList<>(contactRepository.findActive(organizationId, companyId, SearchText.containsPattern(search)));
@@ -63,11 +67,13 @@ public class ContactService {
     }
 
     @Transactional(readOnly = true)
+    @PreAuthorize("@crmAuthorization.canView(#p0)")
     public ContactResponse getById(UUID organizationId, UUID id) {
         organizationService.requireActiveOrganization(organizationId);
         return ContactResponse.from(findActiveContact(organizationId, id));
     }
 
+    @PreAuthorize("@crmAuthorization.canWrite(#p0)")
     public ContactResponse update(UUID organizationId, UUID id, ContactRequest request) {
         organizationService.requireActiveOrganization(organizationId);
         Contact contact = findActiveContact(organizationId, id);
@@ -77,6 +83,7 @@ public class ContactService {
         return ContactResponse.from(contactRepository.save(contact));
     }
 
+    @PreAuthorize("@crmAuthorization.canWrite(#p0)")
     public void archive(UUID organizationId, UUID id) {
         organizationService.requireActiveOrganization(organizationId);
         Contact contact = findActiveContact(organizationId, id);

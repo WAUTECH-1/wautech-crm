@@ -4,6 +4,12 @@ import com.wautech.crm.identity.dto.UserProfileRequest;
 import com.wautech.crm.identity.dto.UserResponse;
 import com.wautech.crm.identity.entity.User;
 import com.wautech.crm.identity.repository.UserRepository;
+import com.wautech.crm.organization.entity.MembershipStatus;
+import com.wautech.crm.organization.entity.OrganizationMembership;
+import com.wautech.crm.organization.entity.OrganizationRole;
+import com.wautech.crm.organization.repository.OrganizationMembershipRepository;
+import com.wautech.crm.organization.repository.OrganizationRepository;
+import com.wautech.crm.organization.service.LastOrganizationOwnerException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -14,8 +20,15 @@ import java.util.UUID;
 @Transactional
 public class UserService {
     private final UserRepository repository;
+    private final OrganizationMembershipRepository membershipRepository;
+    private final OrganizationRepository organizationRepository;
 
-    public UserService(UserRepository repository) { this.repository = repository; }
+    public UserService(UserRepository repository, OrganizationMembershipRepository membershipRepository,
+            OrganizationRepository organizationRepository) {
+        this.repository = repository;
+        this.membershipRepository = membershipRepository;
+        this.organizationRepository = organizationRepository;
+    }
 
     public UserResponse create(UserProfileRequest request) {
         String email = normalizeEmail(request.email());
@@ -35,9 +48,22 @@ public class UserService {
     }
 
     public UserResponse setEnabled(UUID id, boolean enabled) {
+        if (!enabled) ensureNotLastOwner(id);
         User user = requireUser(id);
         user.setEnabled(enabled);
         return UserResponse.from(repository.save(user));
+    }
+
+    private void ensureNotLastOwner(UUID userId) {
+        for (OrganizationMembership membership : membershipRepository.findAllByUser_IdAndStatusAndRole(
+                userId, MembershipStatus.ACTIVE, OrganizationRole.OWNER)) {
+            UUID organizationId = membership.getOrganization().getId();
+            if (organizationRepository.lockByIdAndArchivedFalse(organizationId).isEmpty()) continue;
+            if (membershipRepository.countByOrganization_IdAndStatusAndRole(
+                    organizationId, MembershipStatus.ACTIVE, OrganizationRole.OWNER) <= 1) {
+                throw new LastOrganizationOwnerException(organizationId);
+            }
+        }
     }
 
     public User requireUser(UUID id) { return repository.findById(id).orElseThrow(() -> new UserNotFoundException(id)); }

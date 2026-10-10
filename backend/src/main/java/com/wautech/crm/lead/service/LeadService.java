@@ -12,6 +12,7 @@ import com.wautech.crm.organization.entity.Organization;
 import com.wautech.crm.organization.service.OrganizationService;
 import com.wautech.crm.platform.search.ListSort;
 import com.wautech.crm.platform.search.SearchText;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -35,6 +36,7 @@ public class LeadService {
         this.organizationService = organizationService;
     }
 
+    @PreAuthorize("@crmAuthorization.canWrite(#p0)")
     public LeadResponse create(UUID organizationId, LeadRequest request) {
         Organization organization = organizationService.requireActiveOrganization(organizationId);
         Company company = request.companyId() == null ? null : findActiveCompany(organizationId, request.companyId());
@@ -44,6 +46,7 @@ public class LeadService {
     }
 
     @Transactional(readOnly = true)
+    @PreAuthorize("@crmAuthorization.canView(#p0)")
     public List<LeadResponse> listActive(UUID organizationId, LeadStatus status, UUID companyId) {
         organizationService.requireActiveOrganization(organizationId);
         List<Lead> leads;
@@ -56,6 +59,7 @@ public class LeadService {
     }
 
     @Transactional(readOnly = true)
+    @PreAuthorize("@crmAuthorization.canView(#p0)")
     public List<LeadResponse> listActive(UUID organizationId, LeadStatus status, UUID companyId, String search,
                                          String sortBy, String sortDirection) {
         organizationService.requireActiveOrganization(organizationId);
@@ -65,11 +69,13 @@ public class LeadService {
     }
 
     @Transactional(readOnly = true)
+    @PreAuthorize("@crmAuthorization.canView(#p0)")
     public LeadResponse getById(UUID organizationId, UUID id) {
         organizationService.requireActiveOrganization(organizationId);
         return LeadResponse.from(findActiveLead(organizationId, id));
     }
 
+    @PreAuthorize("@crmAuthorization.canWrite(#p0)")
     public LeadResponse update(UUID organizationId, UUID id, LeadRequest request) {
         organizationService.requireActiveOrganization(organizationId);
         Lead lead = findActiveLead(organizationId, id);
@@ -79,6 +85,7 @@ public class LeadService {
         return LeadResponse.from(leadRepository.save(lead));
     }
 
+    @PreAuthorize("@crmAuthorization.canWrite(#p0)")
     public LeadResponse changeStatus(UUID organizationId, UUID id, LeadStatus newStatus) {
         organizationService.requireActiveOrganization(organizationId);
         Lead lead = findActiveLead(organizationId, id);
@@ -86,6 +93,7 @@ public class LeadService {
         return LeadResponse.from(leadRepository.save(lead));
     }
 
+    @PreAuthorize("@crmAuthorization.canWrite(#p0)")
     public void archive(UUID organizationId, UUID id) {
         organizationService.requireActiveOrganization(organizationId);
         Lead lead = findActiveLead(organizationId, id);

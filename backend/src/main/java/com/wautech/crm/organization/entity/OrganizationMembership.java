@@ -38,6 +38,10 @@ public class OrganizationMembership {
     @Column(nullable = false, length = 16)
     private MembershipStatus status = MembershipStatus.INVITED;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 16)
+    private OrganizationRole role = OrganizationRole.VIEWER;
+
     private Instant invitedAt;
     private Instant joinedAt;
     private Instant deactivatedAt;
@@ -90,6 +94,11 @@ public class OrganizationMembership {
         updatedAt = now;
     }
 
+    public void changeRole(OrganizationRole nextRole) {
+        this.role = nextRole;
+        this.updatedAt = Instant.now();
+    }
+
     @PrePersist
     void setCreationTimestamps() {
         Instant now = Instant.now();
@@ -102,6 +111,7 @@ public class OrganizationMembership {
     public Organization getOrganization() { return organization; }
     public User getUser() { return user; }
     public MembershipStatus getStatus() { return status; }
+    public OrganizationRole getRole() { return role; }
     public Instant getInvitedAt() { return invitedAt; }
     public Instant getJoinedAt() { return joinedAt; }
     public Instant getDeactivatedAt() { return deactivatedAt; }

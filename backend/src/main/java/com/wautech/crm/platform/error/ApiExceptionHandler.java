@@ -16,6 +16,8 @@ import com.wautech.crm.savedview.service.SavedViewNotFoundException;
 import com.wautech.crm.organization.service.OrganizationNotFoundException;
 import com.wautech.crm.organization.service.OrganizationMembershipNotFoundException;
 import com.wautech.crm.organization.service.DuplicateOrganizationMembershipException;
+import com.wautech.crm.organization.service.LastOrganizationOwnerException;
+import com.wautech.crm.organization.service.OrganizationRoleChangeNotAllowedException;
 import com.wautech.crm.identity.service.UserNotFoundException;
 import com.wautech.crm.identity.service.DuplicateUserEmailException;
 import com.wautech.crm.identity.service.DisabledUserException;
@@ -105,6 +107,16 @@ public class ApiExceptionHandler {
             IllegalTaskStatusTransitionException.class})
     ProblemDetail handleInvalidOperation(RuntimeException exception) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, exception.getMessage());
+    }
+
+    @ExceptionHandler(OrganizationRoleChangeNotAllowedException.class)
+    ProblemDetail handleRoleChangeNotAllowed(OrganizationRoleChangeNotAllowedException exception) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN, "Request is not permitted");
+    }
+
+    @ExceptionHandler(LastOrganizationOwnerException.class)
+    ProblemDetail handleLastOwner(LastOrganizationOwnerException exception) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, exception.getMessage());
     }
 
     @ExceptionHandler(IllegalLeadStatusTransitionException.class)

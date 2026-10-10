@@ -21,6 +21,7 @@ import com.wautech.crm.platform.search.ListSort;
 import com.wautech.crm.platform.search.SearchText;
 import com.wautech.crm.organization.entity.Organization;
 import com.wautech.crm.organization.service.OrganizationService;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -51,6 +52,7 @@ public class ActivityService {
         this.organizationService = organizationService;
     }
 
+    @PreAuthorize("@crmAuthorization.canWrite(#p0)")
     public ActivityResponse create(UUID organizationId, ActivityRequest request) {
         Organization organization = organizationService.requireActiveOrganization(organizationId);
         ParentRecords parents = findParents(organizationId, request);
@@ -60,6 +62,7 @@ public class ActivityService {
     }
 
     @Transactional(readOnly = true)
+    @PreAuthorize("@crmAuthorization.canView(#p0)")
     public List<ActivityResponse> listActive(UUID organizationId, UUID companyId, UUID contactId, UUID leadId,
                                              UUID opportunityId, ActivityType type) {
         organizationService.requireActiveOrganization(organizationId);
@@ -68,6 +71,7 @@ public class ActivityService {
     }
 
     @Transactional(readOnly = true)
+    @PreAuthorize("@crmAuthorization.canView(#p0)")
     public List<ActivityResponse> listActive(UUID organizationId, UUID companyId, UUID contactId, UUID leadId, UUID opportunityId,
                                              ActivityType type, String search, String sortBy, String sortDirection) {
         organizationService.requireActiveOrganization(organizationId);
@@ -78,11 +82,13 @@ public class ActivityService {
     }
 
     @Transactional(readOnly = true)
+    @PreAuthorize("@crmAuthorization.canView(#p0)")
     public ActivityResponse getById(UUID organizationId, UUID id) {
         organizationService.requireActiveOrganization(organizationId);
         return ActivityResponse.from(findActiveActivity(organizationId, id));
     }
 
+    @PreAuthorize("@crmAuthorization.canWrite(#p0)")
     public ActivityResponse update(UUID organizationId, UUID id, ActivityRequest request) {
         organizationService.requireActiveOrganization(organizationId);
         Activity activity = findActiveActivity(organizationId, id);
@@ -92,6 +98,7 @@ public class ActivityService {
         return ActivityResponse.from(activityRepository.save(activity));
     }
 
+    @PreAuthorize("@crmAuthorization.canWrite(#p0)")
     public void archive(UUID organizationId, UUID id) {
         organizationService.requireActiveOrganization(organizationId);
         Activity activity = findActiveActivity(organizationId, id);

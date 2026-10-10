@@ -23,6 +23,7 @@ import com.wautech.crm.platform.search.ListSort;
 import com.wautech.crm.platform.search.SearchText;
 import com.wautech.crm.organization.entity.Organization;
 import com.wautech.crm.organization.service.OrganizationService;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -54,6 +55,7 @@ public class TaskService {
         this.organizationService = organizationService;
     }
 
+    @PreAuthorize("@crmAuthorization.canWrite(#p0)")
     public TaskResponse create(UUID organizationId, TaskRequest request) {
         Organization organization = organizationService.requireActiveOrganization(organizationId);
         ParentRecords parents = findParents(organizationId, request);
@@ -63,6 +65,7 @@ public class TaskService {
     }
 
     @Transactional(readOnly = true)
+    @PreAuthorize("@crmAuthorization.canView(#p0)")
     public List<TaskResponse> listActive(UUID organizationId, UUID companyId, UUID contactId, UUID leadId, UUID opportunityId,
                                          TaskStatus status, TaskPriority priority, Instant dueBefore,
                                          Instant dueAfter, Boolean overdue) {
@@ -74,6 +77,7 @@ public class TaskService {
     }
 
     @Transactional(readOnly = true)
+    @PreAuthorize("@crmAuthorization.canView(#p0)")
     public List<TaskResponse> listActive(UUID organizationId, UUID companyId, UUID contactId, UUID leadId, UUID opportunityId,
                                          TaskStatus status, TaskPriority priority, Instant dueBefore,
                                          Instant dueAfter, Boolean overdue, String search,
@@ -88,11 +92,13 @@ public class TaskService {
     }
 
     @Transactional(readOnly = true)
+    @PreAuthorize("@crmAuthorization.canView(#p0)")
     public TaskResponse getById(UUID organizationId, UUID id) {
         organizationService.requireActiveOrganization(organizationId);
         return TaskResponse.from(findActiveTask(organizationId, id));
     }
 
+    @PreAuthorize("@crmAuthorization.canWrite(#p0)")
     public TaskResponse update(UUID organizationId, UUID id, TaskRequest request) {
         organizationService.requireActiveOrganization(organizationId);
         Task task = findActiveTask(organizationId, id);
@@ -102,6 +108,7 @@ public class TaskService {
         return TaskResponse.from(taskRepository.save(task));
     }
 
+    @PreAuthorize("@crmAuthorization.canWrite(#p0)")
     public TaskResponse changeStatus(UUID organizationId, UUID id, TaskStatus status) {
         organizationService.requireActiveOrganization(organizationId);
         Task task = findActiveTask(organizationId, id);
@@ -109,6 +116,7 @@ public class TaskService {
         return TaskResponse.from(taskRepository.save(task));
     }
 
+    @PreAuthorize("@crmAuthorization.canWrite(#p0)")
     public void archive(UUID organizationId, UUID id) {
         organizationService.requireActiveOrganization(organizationId);
         Task task = findActiveTask(organizationId, id);
