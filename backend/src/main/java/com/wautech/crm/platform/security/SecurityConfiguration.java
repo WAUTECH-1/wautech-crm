@@ -11,6 +11,7 @@ import com.wautech.crm.platform.tenant.AuthenticatedOrganizationContext;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -25,6 +26,9 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.access.intercept.RequestAuthorizationContext;
+import org.springframework.security.authorization.AuthorizationDecision;
+import org.springframework.security.authorization.AuthorizationManager;
 import org.springframework.security.web.access.AccessDeniedHandler;
 import org.springframework.security.web.authentication.session.ChangeSessionIdAuthenticationStrategy;
 import org.springframework.security.web.authentication.session.SessionAuthenticationStrategy;
@@ -101,6 +105,7 @@ public class SecurityConfiguration {
     SecurityFilterChain securityFilterChain(HttpSecurity http, UserService userService,
             OrganizationMembershipService membershipService, ObjectMapper objectMapper,
             AuditEventWriter auditEventWriter,
+            ObjectProvider<CrmAuthorization> crmAuthorizationProvider,
             SecurityContextRepository securityContextRepository, AuthenticationEntryPoint apiAuthenticationEntryPoint,
             AccessDeniedHandler apiAccessDeniedHandler) throws Exception {
         HttpSessionCsrfTokenRepository csrfRepository = new HttpSessionCsrfTokenRepository();
@@ -117,9 +122,12 @@ public class SecurityConfiguration {
                 .httpBasic(basic -> basic.disable())
                 .logout(logout -> logout.disable())
                 .authorizeHttpRequests(authorize -> authorize
-                        .requestMatchers(HttpMethod.GET, "/api/health", "/api/auth/csrf").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/health", "/api/health/liveness", "/api/health/readiness",
+                                "/actuator/health/liveness", "/actuator/health/readiness", "/api/auth/csrf").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
                         .requestMatchers("/api/auth/**").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/actuator/**").access(operationalAdminAccess(crmAuthorizationProvider))
+                        .requestMatchers("/actuator/**").denyAll()
                         .requestMatchers("/api/**").authenticated()
                         .anyRequest().denyAll())
                 .exceptionHandling(exceptions -> exceptions
@@ -128,8 +136,21 @@ public class SecurityConfiguration {
                 .addFilterAfter(new UserEnabledSessionFilter(userService, apiAuthenticationEntryPoint),
                         org.springframework.security.web.context.SecurityContextHolderFilter.class)
                 .addFilterAfter(new ActiveOrganizationContextFilter(membershipService, objectMapper, auditEventWriter),
-                        UserEnabledSessionFilter.class);
+                        UserEnabledSessionFilter.class)
+                .addFilterBefore(new CorrelationIdFilter(),
+                        org.springframework.security.web.context.SecurityContextHolderFilter.class);
 
         return http.build();
+    }
+
+    private AuthorizationManager<RequestAuthorizationContext> operationalAdminAccess(
+            ObjectProvider<CrmAuthorization> crmAuthorizationProvider) {
+        return (authentication, context) -> {
+            Object organization = context.getRequest().getAttribute(AuthenticatedOrganizationContext.REQUEST_ATTRIBUTE);
+            CrmAuthorization crmAuthorization = crmAuthorizationProvider.getIfAvailable();
+            boolean permitted = crmAuthorization != null && organization instanceof UUID organizationId
+                    && crmAuthorization.canManageOrganization(organizationId);
+            return new AuthorizationDecision(permitted);
+        };
     }
 }

@@ -31,6 +31,25 @@ server:
         http-only: true
         secure: ${SESSION_COOKIE_SECURE:false}
         same-site: lax
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,metrics,prometheus
+      discovery:
+        enabled: false
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      group:
+        readiness:
+          include: readinessState,db
+      show-details: never
+      show-components: never
+logging:
+  pattern:
+    level: "%5p [correlation:%X{correlationId}]"
 app:
   security:
     bcrypt-strength: ${PASSWORD_BCRYPT_STRENGTH:12}
