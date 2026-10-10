@@ -19,3 +19,14 @@ server:
     include-message: never
     include-stacktrace: never
     include-binding-errors: never
+  servlet:
+    session:
+      timeout: 30m
+      cookie:
+        name: WAUTECH_SESSION
+        http-only: true
+        secure: ${SESSION_COOKIE_SECURE:false}
+        same-site: lax
+app:
+  security:
+    bcrypt-strength: ${PASSWORD_BCRYPT_STRENGTH:12}

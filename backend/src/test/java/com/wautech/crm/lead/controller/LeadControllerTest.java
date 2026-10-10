@@ -1,6 +1,8 @@
 package com.wautech.crm.lead.controller;
 
 import com.wautech.crm.platform.tenant.AuthenticatedOrganizationContext;
+import com.wautech.crm.platform.security.SecurityMvcTestSupport;
+import com.wautech.crm.platform.security.TenantMvcTestConfiguration;
 import com.wautech.crm.TestOrganization;
 import com.wautech.crm.company.service.CompanyNotFoundException;
 import com.wautech.crm.lead.dto.LeadResponse;
@@ -14,6 +16,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.Instant;
@@ -27,7 +30,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(LeadController.class)
-class LeadControllerTest {
+@Import(TenantMvcTestConfiguration.class)
+class LeadControllerTest extends SecurityMvcTestSupport {
     @MockitoBean private AuthenticatedOrganizationContext organizationContext;
     @BeforeEach
     void organizationContextUsesTestOrganization() {

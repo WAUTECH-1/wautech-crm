@@ -27,6 +27,9 @@ public class User {
     @Column(nullable = false, length = 100)
     private String lastName;
 
+    @Column(name = "password_hash", length = 100)
+    private String passwordHash;
+
     @Column(nullable = false)
     private boolean enabled = true;
 
@@ -67,6 +70,7 @@ public class User {
     public String getEmail() { return email; }
     public String getFirstName() { return firstName; }
     public String getLastName() { return lastName; }
+    public String getPasswordHash() { return passwordHash; }
     public boolean isEnabled() { return enabled; }
     public Instant getCreatedAt() { return createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }

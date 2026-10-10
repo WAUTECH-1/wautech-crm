@@ -1,6 +1,8 @@
 package com.wautech.crm.note.controller;
 
 import com.wautech.crm.platform.tenant.AuthenticatedOrganizationContext;
+import com.wautech.crm.platform.security.SecurityMvcTestSupport;
+import com.wautech.crm.platform.security.TenantMvcTestConfiguration;
 import com.wautech.crm.TestOrganization;
 import com.wautech.crm.note.dto.NoteResponse;
 import com.wautech.crm.note.service.NoteNotFoundException;
@@ -12,6 +14,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.Instant;
@@ -25,7 +28,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(NoteController.class)
-class NoteControllerTest {
+@Import(TenantMvcTestConfiguration.class)
+class NoteControllerTest extends SecurityMvcTestSupport {
     @MockitoBean private AuthenticatedOrganizationContext organizationContext;
     @BeforeEach
     void organizationContextUsesTestOrganization() {
