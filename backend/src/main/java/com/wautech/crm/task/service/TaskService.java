@@ -1,5 +1,6 @@
 package com.wautech.crm.task.service;
 
+import com.wautech.crm.audit.AuditedMutation;
 import com.wautech.crm.activity.service.ActivityNotFoundException;
 import com.wautech.crm.company.entity.Company;
 import com.wautech.crm.company.repository.CompanyRepository;
@@ -56,6 +57,7 @@ public class TaskService {
     }
 
     @PreAuthorize("@crmAuthorization.canWrite(#p0)")
+    @AuditedMutation(eventType = "TASK_CREATED", targetType = "TASK")
     public TaskResponse create(UUID organizationId, TaskRequest request) {
         Organization organization = organizationService.requireActiveOrganization(organizationId);
         ParentRecords parents = findParents(organizationId, request);
@@ -99,6 +101,7 @@ public class TaskService {
     }
 
     @PreAuthorize("@crmAuthorization.canWrite(#p0)")
+    @AuditedMutation(eventType = "TASK_UPDATED", targetType = "TASK")
     public TaskResponse update(UUID organizationId, UUID id, TaskRequest request) {
         organizationService.requireActiveOrganization(organizationId);
         Task task = findActiveTask(organizationId, id);
@@ -109,6 +112,7 @@ public class TaskService {
     }
 
     @PreAuthorize("@crmAuthorization.canWrite(#p0)")
+    @AuditedMutation(eventType = "TASK_STATUS_CHANGED", targetType = "TASK")
     public TaskResponse changeStatus(UUID organizationId, UUID id, TaskStatus status) {
         organizationService.requireActiveOrganization(organizationId);
         Task task = findActiveTask(organizationId, id);
@@ -117,6 +121,7 @@ public class TaskService {
     }
 
     @PreAuthorize("@crmAuthorization.canWrite(#p0)")
+    @AuditedMutation(eventType = "TASK_ARCHIVED", targetType = "TASK")
     public void archive(UUID organizationId, UUID id) {
         organizationService.requireActiveOrganization(organizationId);
         Task task = findActiveTask(organizationId, id);

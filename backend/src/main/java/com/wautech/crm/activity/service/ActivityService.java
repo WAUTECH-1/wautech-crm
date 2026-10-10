@@ -1,5 +1,6 @@
 package com.wautech.crm.activity.service;
 
+import com.wautech.crm.audit.AuditedMutation;
 import com.wautech.crm.activity.dto.ActivityRequest;
 import com.wautech.crm.activity.dto.ActivityResponse;
 import com.wautech.crm.activity.entity.Activity;
@@ -53,6 +54,7 @@ public class ActivityService {
     }
 
     @PreAuthorize("@crmAuthorization.canWrite(#p0)")
+    @AuditedMutation(eventType = "ACTIVITY_CREATED", targetType = "ACTIVITY")
     public ActivityResponse create(UUID organizationId, ActivityRequest request) {
         Organization organization = organizationService.requireActiveOrganization(organizationId);
         ParentRecords parents = findParents(organizationId, request);
@@ -89,6 +91,7 @@ public class ActivityService {
     }
 
     @PreAuthorize("@crmAuthorization.canWrite(#p0)")
+    @AuditedMutation(eventType = "ACTIVITY_UPDATED", targetType = "ACTIVITY")
     public ActivityResponse update(UUID organizationId, UUID id, ActivityRequest request) {
         organizationService.requireActiveOrganization(organizationId);
         Activity activity = findActiveActivity(organizationId, id);
@@ -99,6 +102,7 @@ public class ActivityService {
     }
 
     @PreAuthorize("@crmAuthorization.canWrite(#p0)")
+    @AuditedMutation(eventType = "ACTIVITY_ARCHIVED", targetType = "ACTIVITY")
     public void archive(UUID organizationId, UUID id) {
         organizationService.requireActiveOrganization(organizationId);
         Activity activity = findActiveActivity(organizationId, id);

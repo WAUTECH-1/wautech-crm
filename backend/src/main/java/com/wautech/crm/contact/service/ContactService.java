@@ -1,5 +1,6 @@
 package com.wautech.crm.contact.service;
 
+import com.wautech.crm.audit.AuditedMutation;
 import com.wautech.crm.company.entity.Company;
 import com.wautech.crm.company.repository.CompanyRepository;
 import com.wautech.crm.company.service.CompanyNotFoundException;
@@ -36,6 +37,7 @@ public class ContactService {
     }
 
     @PreAuthorize("@crmAuthorization.canWrite(#p0)")
+    @AuditedMutation(eventType = "CONTACT_CREATED", targetType = "CONTACT")
     public ContactResponse create(UUID organizationId, ContactRequest request) {
         Organization organization = organizationService.requireActiveOrganization(organizationId);
         Company company = findActiveCompany(organizationId, request.companyId());
@@ -74,6 +76,7 @@ public class ContactService {
     }
 
     @PreAuthorize("@crmAuthorization.canWrite(#p0)")
+    @AuditedMutation(eventType = "CONTACT_UPDATED", targetType = "CONTACT")
     public ContactResponse update(UUID organizationId, UUID id, ContactRequest request) {
         organizationService.requireActiveOrganization(organizationId);
         Contact contact = findActiveContact(organizationId, id);
@@ -84,6 +87,7 @@ public class ContactService {
     }
 
     @PreAuthorize("@crmAuthorization.canWrite(#p0)")
+    @AuditedMutation(eventType = "CONTACT_ARCHIVED", targetType = "CONTACT")
     public void archive(UUID organizationId, UUID id) {
         organizationService.requireActiveOrganization(organizationId);
         Contact contact = findActiveContact(organizationId, id);

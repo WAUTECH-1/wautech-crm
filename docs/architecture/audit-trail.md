@@ -1,0 +1,11 @@
+# Audit trail
+
+Feature #15 stores audit events in `crm.audit_event`. Each row has a UUID, nullable organization and actor references, a controlled uppercase event and target identifier, outcome, occurrence time, and sanitized JSON metadata. Foreign keys use restrictive deletion behavior so deleting an actor or organization cannot cascade away audit history.
+
+Business event names use `<DOMAIN>_<ACTION>` (for example `COMPANY_CREATED`, `LEAD_STATUS_CHANGED`, and `ORGANIZATION_OWNERSHIP_TRANSFERRED`). Covered business operations are create/update/archive for Company, Contact, Lead, Opportunity, Activity, Task, Note, Saved View, and Organization; membership creation/status changes; role changes and ownership transfer; and user activation changes. Mutation annotations are the central event declaration. The audit interceptor records only successful service mutations and writes in the same database transaction; an insert error rolls the business mutation back. No request body or user-provided field values are copied into metadata.
+
+Security events include successful and failed login, logout, and access-denied decisions. Failed login events have a null actor and organization so the event does not imply an identity based on submitted credentials. Security events use an independent transaction. The failed-login event stores no submitted email or password. Access-denied metadata contains only the HTTP method.
+
+`GET /api/audit-events` is read-only and is available to organization OWNER and ADMIN roles. The organization is taken from the authenticated tenant context and every repository query filters by that organization. Platform events with a null organization are consequently unavailable through this route. Filters cover date range, event type, actor, target type/id, and outcome. Results are ordered by occurrence time and UUID descending, with pages capped at 100 entries. Public responses omit metadata.
+
+The migration installs a trigger rejecting ordinary UPDATE and DELETE statements. A database owner or superuser may disable or bypass such protections; production database privileges and backups remain operational controls. There is no public audit-write endpoint, and the application exposes no update/delete API for events.

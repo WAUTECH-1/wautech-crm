@@ -1,5 +1,6 @@
 package com.wautech.crm.savedview.service;
 
+import com.wautech.crm.audit.AuditedMutation;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.wautech.crm.savedview.dto.SavedViewRequest;
 import com.wautech.crm.savedview.dto.SavedViewResponse;
@@ -28,6 +29,7 @@ public class SavedViewService {
     }
 
     @PreAuthorize("@crmAuthorization.canWrite(#p0)")
+    @AuditedMutation(eventType = "SAVED_VIEW_CREATED", targetType = "SAVED_VIEW")
     public SavedViewResponse create(UUID organizationId, SavedViewRequest request) {
         Organization organization = organizationService.requireActiveOrganization(organizationId);
         validate(request);
@@ -52,6 +54,7 @@ public class SavedViewService {
     }
 
     @PreAuthorize("@crmAuthorization.canWrite(#p0)")
+    @AuditedMutation(eventType = "SAVED_VIEW_UPDATED", targetType = "SAVED_VIEW")
     public SavedViewResponse update(UUID organizationId, UUID id, SavedViewRequest request) {
         organizationService.requireActiveOrganization(organizationId);
         validate(request);
@@ -62,6 +65,7 @@ public class SavedViewService {
     }
 
     @PreAuthorize("@crmAuthorization.canWrite(#p0)")
+    @AuditedMutation(eventType = "SAVED_VIEW_ARCHIVED", targetType = "SAVED_VIEW")
     public void archive(UUID organizationId, UUID id) {
         organizationService.requireActiveOrganization(organizationId);
         SavedView view = findActive(organizationId, id);

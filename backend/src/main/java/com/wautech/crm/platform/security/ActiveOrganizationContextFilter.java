@@ -1,5 +1,7 @@
 package com.wautech.crm.platform.security;
 
+import com.wautech.crm.audit.entity.AuditOutcome;
+import com.wautech.crm.audit.service.AuditEventWriter;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.wautech.crm.identity.security.CrmUserPrincipal;
 import com.wautech.crm.identity.service.DisabledUserException;
@@ -25,10 +27,13 @@ public class ActiveOrganizationContextFilter extends OncePerRequestFilter {
 
     private final OrganizationMembershipService membershipService;
     private final ObjectMapper objectMapper;
+    private final AuditEventWriter auditEventWriter;
 
-    public ActiveOrganizationContextFilter(OrganizationMembershipService membershipService, ObjectMapper objectMapper) {
+    public ActiveOrganizationContextFilter(OrganizationMembershipService membershipService, ObjectMapper objectMapper,
+            AuditEventWriter auditEventWriter) {
         this.membershipService = membershipService;
         this.objectMapper = objectMapper;
+        this.auditEventWriter = auditEventWriter;
     }
 
     @Override
@@ -49,6 +54,7 @@ public class ActiveOrganizationContextFilter extends OncePerRequestFilter {
 
         String requestedOrganization = request.getHeader(ORGANIZATION_HEADER);
         if (requestedOrganization == null || requestedOrganization.isBlank()) {
+            recordDenied(request, authentication);
             SecurityProblemWriter.write(response, objectMapper, HttpStatus.FORBIDDEN,
                     "An active organization membership is required");
             return;
@@ -73,6 +79,7 @@ public class ActiveOrganizationContextFilter extends OncePerRequestFilter {
             activeMember = false;
         }
         if (!activeMember) {
+            recordDenied(request, authentication);
             SecurityProblemWriter.write(response, objectMapper, HttpStatus.FORBIDDEN,
                     "An active organization membership is required");
             return;
@@ -80,5 +87,16 @@ public class ActiveOrganizationContextFilter extends OncePerRequestFilter {
 
         request.setAttribute(AuthenticatedOrganizationContext.REQUEST_ATTRIBUTE, organizationId);
         chain.doFilter(request, response);
+    }
+
+    private void recordDenied(HttpServletRequest request, Authentication authentication) {
+        UUID actorId = authentication.getPrincipal() instanceof CrmUserPrincipal principal ? principal.getId() : null;
+        try {
+            // The supplied tenant ID has not been authenticated; keep the event platform-level.
+            auditEventWriter.recordSecurity(null, actorId, "ACCESS_DENIED", "API_REQUEST", null,
+                    AuditOutcome.FAILURE, java.util.Map.of("method", request.getMethod()));
+        } catch (RuntimeException auditFailure) {
+            // The authorization response must remain generic and stable if storage is unavailable.
+        }
     }
 }

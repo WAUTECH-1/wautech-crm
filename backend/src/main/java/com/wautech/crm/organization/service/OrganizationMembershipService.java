@@ -1,5 +1,6 @@
 package com.wautech.crm.organization.service;
 
+import com.wautech.crm.audit.AuditedMutation;
 import com.wautech.crm.identity.entity.User;
 import com.wautech.crm.identity.service.UserService;
 import com.wautech.crm.organization.dto.OrganizationMembershipResponse;
@@ -32,6 +33,7 @@ public class OrganizationMembershipService {
     }
 
     @PreAuthorize("@crmAuthorization.canManageOrganization(#p0)")
+    @AuditedMutation(eventType = "MEMBERSHIP_CREATED", targetType = "ORGANIZATION_MEMBERSHIP")
     public OrganizationMembershipResponse create(UUID organizationId, UUID userId) {
         var organization = organizationService.lockActiveOrganization(organizationId);
         User user = userService.requireUser(userId);
@@ -67,6 +69,7 @@ public class OrganizationMembershipService {
 
     /** Internal lifecycle operation. It is deliberately not exposed through an HTTP controller. */
     @PreAuthorize("@crmAuthorization.canManageOrganization(#p0)")
+    @AuditedMutation(eventType = "MEMBERSHIP_STATUS_CHANGED", targetType = "ORGANIZATION_MEMBERSHIP")
     public OrganizationMembershipResponse transition(UUID organizationId, UUID membershipId, MembershipStatus nextStatus) {
         organizationService.lockActiveOrganization(organizationId);
         OrganizationMembership membership = requireMembership(organizationId, membershipId);
@@ -88,6 +91,7 @@ public class OrganizationMembershipService {
     }
 
     @PreAuthorize("@crmAuthorization.canManageOrganization(#p0)")
+    @AuditedMutation(eventType = "MEMBERSHIP_ROLE_CHANGED", targetType = "ORGANIZATION_MEMBERSHIP")
     public OrganizationMembershipResponse changeRole(UUID organizationId, UUID membershipId, OrganizationRole nextRole) {
         organizationService.lockActiveOrganization(organizationId);
         OrganizationMembership membership = requireMembership(organizationId, membershipId);
@@ -110,6 +114,7 @@ public class OrganizationMembershipService {
     }
 
     @PreAuthorize("@crmAuthorization.isOwner(#p0)")
+    @AuditedMutation(eventType = "ORGANIZATION_OWNERSHIP_TRANSFERRED", targetType = "ORGANIZATION_MEMBERSHIP")
     public OrganizationMembershipResponse transferOwnership(UUID organizationId, UUID targetMembershipId) {
         organizationService.lockActiveOrganization(organizationId);
         UUID actorId = authorization.currentUserId();
