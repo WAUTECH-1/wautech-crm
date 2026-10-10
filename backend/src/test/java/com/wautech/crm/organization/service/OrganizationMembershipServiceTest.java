@@ -8,6 +8,7 @@ import com.wautech.crm.organization.entity.MembershipStatus;
 import com.wautech.crm.organization.entity.Organization;
 import com.wautech.crm.organization.entity.OrganizationMembership;
 import com.wautech.crm.organization.entity.OrganizationRole;
+import com.wautech.crm.notification.service.NotificationEventWriter;
 import com.wautech.crm.organization.repository.OrganizationMembershipRepository;
 import com.wautech.crm.platform.security.CrmAuthorization;
 import org.junit.jupiter.api.BeforeEach;
@@ -30,6 +31,7 @@ class OrganizationMembershipServiceTest {
     @Mock private OrganizationService organizationService;
     @Mock private UserService userService;
     @Mock private CrmAuthorization authorization;
+    @Mock private NotificationEventWriter notificationEventWriter;
     @InjectMocks private OrganizationMembershipService service;
 
     private final UUID organizationId = UUID.randomUUID();
@@ -73,6 +75,7 @@ class OrganizationMembershipServiceTest {
         assertEquals(MembershipStatus.SUSPENDED, service.transition(organizationId, UUID.randomUUID(), MembershipStatus.SUSPENDED).status());
         assertFalse(service.isActiveMember(organizationId, userId));
         assertEquals(MembershipStatus.ACTIVE, service.transition(organizationId, UUID.randomUUID(), MembershipStatus.ACTIVE).status());
+        verify(notificationEventWriter, times(2)).membershipActivated(any());
         assertEquals(MembershipStatus.REVOKED, service.transition(organizationId, UUID.randomUUID(), MembershipStatus.REVOKED).status());
         assertFalse(service.isActiveMember(organizationId, userId));
     }
@@ -173,6 +176,8 @@ class OrganizationMembershipServiceTest {
         assertEquals(OrganizationRole.OWNER, response.role());
         verify(membershipRepository).save(currentOwner);
         verify(membershipRepository).save(target);
+        verify(notificationEventWriter).membershipRoleChanged(currentOwner);
+        verify(notificationEventWriter).membershipRoleChanged(target);
     }
 
     @Test
