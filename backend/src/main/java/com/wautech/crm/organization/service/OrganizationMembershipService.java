@@ -71,7 +71,7 @@ public class OrganizationMembershipService {
         return OrganizationMembershipResponse.from(requireMembership(organizationId, membershipId));
     }
 
-    /** Internal lifecycle operation. It is deliberately not exposed through an HTTP controller. */
+    /** Membership lifecycle; the administration controller reuses these authorization and owner safeguards. */
     @PreAuthorize("@crmAuthorization.canManageOrganization(#p0)")
     @AuditedMutation(eventType = "MEMBERSHIP_STATUS_CHANGED", targetType = "ORGANIZATION_MEMBERSHIP")
     public OrganizationMembershipResponse transition(UUID organizationId, UUID membershipId, MembershipStatus nextStatus) {
