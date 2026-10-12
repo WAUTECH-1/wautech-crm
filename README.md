@@ -68,3 +68,9 @@ The default JDBC URL follows `DB_NAME` and `DB_PORT`; `DB_URL` can override it. 
 Stop the app with Ctrl+C. From the root, `docker compose down` stops PostgreSQL and preserves data. PostgreSQL initialization settings apply only to an empty volume; changing the password requires updating the existing database or deliberately recreating local data.
 
 Architecture decisions: [architecture](docs/architecture/ARCHITECTURE.md) and [ADR-001](docs/adr/ADR-001-backend-foundation.md).
+
+## Local development login
+
+To provision `admin@wautech.local` securely in an existing development organization, run
+`./scripts/Setup-LocalAccount.ps1 -OrganizationId <your-local-organization-id>` from the repository root.
+See [local development login](docs/local-development-login.md) for target confirmation, masked password prompts, and API verification.
