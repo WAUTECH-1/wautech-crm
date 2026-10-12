@@ -47,7 +47,7 @@ import java.util.UUID;
 @EnableMethodSecurity
 public class SecurityConfiguration {
     @Bean
-    PasswordEncoder passwordEncoder(@Value("${app.security.bcrypt-strength:12}") int strength) {
+    public PasswordEncoder passwordEncoder(@Value("${app.security.bcrypt-strength:12}") int strength) {
         if (strength < 10 || strength > 16) {
             throw new IllegalStateException("app.security.bcrypt-strength must be between 10 and 16");
         }
