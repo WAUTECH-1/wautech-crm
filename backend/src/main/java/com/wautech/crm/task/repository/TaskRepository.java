@@ -21,8 +21,8 @@ public interface TaskRepository extends JpaRepository<Task, UUID> {
             "and (:status is null or t.status = :status) " +
             "and (:priority is null or t.priority = :priority) " +
             "and (:search is null or lower(t.title) like :search escape '!' or lower(t.description) like :search escape '!') " +
-            "and (:dueBefore is null or t.dueAt < :dueBefore) " +
-            "and (:dueAfter is null or t.dueAt > :dueAfter) " +
+            "and (cast(:dueBefore as timestamp) is null or t.dueAt < :dueBefore) " +
+            "and (cast(:dueAfter as timestamp) is null or t.dueAt > :dueAfter) " +
             "and (:overdue is null or " +
             "(:overdue = true and t.dueAt is not null and t.dueAt < :now " +
             "and t.status in (com.wautech.crm.task.entity.TaskStatus.OPEN, " +
