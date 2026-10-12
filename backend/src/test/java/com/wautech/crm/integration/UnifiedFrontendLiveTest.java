@@ -111,6 +111,3 @@ class UnifiedFrontendLiveTest {
     }
     JsonNode create(String resource,Object body) throws Exception {var response=request("POST","/"+resource,body,organization,true);assertEquals(201,response.statusCode(),response.body());return json(response);}
 }
-
-
-
