@@ -10,6 +10,8 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface OrganizationMembershipRepository extends JpaRepository<OrganizationMembership, UUID> {
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = "organization")
+    List<OrganizationMembership> findAllByUser_IdAndStatusAndOrganization_ArchivedFalseOrderByOrganization_NameAsc(UUID userId, MembershipStatus status);
     List<OrganizationMembership> findAllByOrganization_IdOrderByCreatedAtDesc(UUID organizationId);
     List<OrganizationMembership> findAllByOrganization_IdAndUser_IdOrderByCreatedAtDesc(UUID organizationId, UUID userId);
     Optional<OrganizationMembership> findByIdAndOrganization_Id(UUID id, UUID organizationId);
