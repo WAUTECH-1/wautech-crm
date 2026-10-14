@@ -50,6 +50,25 @@ jobs:
           cache-dependency-path: backend/pom.xml
       - name: Run complete Maven verification
         run: ./mvnw --batch-mode clean verify
+      - name: Run real HTTP CRM integration against disposable fixtures
+        shell: bash
+        run: |
+          set -euo pipefail
+          fixture_password=$(openssl rand -hex 24)
+          echo "::add-mask::$fixture_password"
+          export WAUTECH_TEST_DB_URL=jdbc:postgresql://127.0.0.1:15432/wautech_integration_fixture
+          export WAUTECH_TEST_DB_PASSWORD="$fixture_password"
+          export WAUTECH_BROWSER_SMOKE=false
+          docker run --detach --name wautech-http-fixture --publish 127.0.0.1:15432:5432 \
+            --tmpfs /var/lib/postgresql/data \
+            --env POSTGRES_DB=wautech_integration_fixture --env POSTGRES_USER=fixture \
+            --env POSTGRES_PASSWORD="$fixture_password" postgres:17
+          trap 'docker rm --force wautech-http-fixture >/dev/null' EXIT
+          for attempt in $(seq 1 60); do
+            if docker exec wautech-http-fixture pg_isready -U fixture -d wautech_integration_fixture; then break; fi
+            sleep 1
+          done
+          ./mvnw --batch-mode -Dtest=UnifiedFrontendLiveTest test
       - name: Start packaged application and verify PostgreSQL migrations
         shell: bash
         run: |

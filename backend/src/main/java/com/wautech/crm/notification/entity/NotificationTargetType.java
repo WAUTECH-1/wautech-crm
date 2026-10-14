@@ -1,5 +1,7 @@
 package com.wautech.crm.notification.entity;
 
 public enum NotificationTargetType {
-    ORGANIZATION_MEMBERSHIP
+  TASK,
+  OPPORTUNITY,
+  ORGANIZATION_MEMBERSHIP
 }
