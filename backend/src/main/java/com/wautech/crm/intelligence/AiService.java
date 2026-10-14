@@ -167,6 +167,13 @@ public class AiService {
         throw new AiFailure(
             HttpStatus.BAD_REQUEST, "CRM context is too large. Choose a narrower context.");
       AiSafety.requireNoCredentials(context, settings.apiKey());
+      synchronized (session) {
+        var current = (Map<?, ?>) session.getAttribute(SESSION_KEY);
+        if (current == null || current.get(org) != c)
+          throw new AiFailure(
+              HttpStatus.CONFLICT,
+              "Business context changed. Refresh the conversation before sharing.");
+      }
       budget.reserve(org, c.user);
       reserved =
           AiBudget
@@ -248,6 +255,26 @@ public class AiService {
           if (all != null) {
             all.values().removeIf(c -> !c.expiresAt.isAfter(Instant.now()));
             if (all.isEmpty()) session.removeAttribute(SESSION_KEY);
+          }
+        }
+      } catch (IllegalStateException expired) {
+        sessions.remove(session);
+      }
+  }
+
+  /** Invalidates copied business context on corrections, deletion or sharing revocation. */
+  public void clearBusinessContext(UUID organizationId, UUID userId) {
+    List<HttpSession> snapshot;
+    synchronized (sessions) {
+      snapshot = new ArrayList<>(sessions.keySet());
+    }
+    for (var session : snapshot)
+      try {
+        synchronized (session) {
+          var all = (Map<?, Conversation>) session.getAttribute(SESSION_KEY);
+          if (all != null) {
+            var c = all.get(organizationId);
+            if (c != null && (userId == null || c.user.equals(userId))) all.remove(organizationId);
           }
         }
       } catch (IllegalStateException expired) {
