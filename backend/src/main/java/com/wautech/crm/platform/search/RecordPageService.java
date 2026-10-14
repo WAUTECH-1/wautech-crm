@@ -140,6 +140,12 @@ public class RecordPageService {
                               cb.like(
                                   cb.lower(r.get(f)), SearchText.containsPattern(value), (char) 92))
                       .toArray(Predicate[]::new)));
+        } else if (key.equals("currency") || key.equals("pipelineStageKey")) {
+          if (!resource.equals("opportunities")
+              || (key.equals("currency") && !value.matches("[A-Z]{3}"))
+              || (key.equals("pipelineStageKey") && !value.matches("[a-z][a-z0-9_-]{0,49}")))
+            throw new IllegalArgumentException();
+          p.add(cb.equal(r.get(key), value));
         } else if (key.endsWith("Id")) {
           String relation = key.substring(0, key.length() - 2);
           var valid =
