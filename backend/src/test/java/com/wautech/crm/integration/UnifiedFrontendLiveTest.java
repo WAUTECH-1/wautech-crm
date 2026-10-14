@@ -99,7 +99,11 @@ class UnifiedFrontendLiveTest {
       throws Exception {
     var builder =
         HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + "/api" + path))
-            .header("Accept", path.startsWith("/exports/") ? "text/csv" : "application/json");
+            .header(
+                "Accept",
+                (path.startsWith("/exports/") || path.startsWith("/reports/export"))
+                    ? "text/csv"
+                    : "application/json");
     if (org != null) builder.header("X-Organization-ID", org.toString());
     if (csrf) {
       var token = json(request("GET", "/auth/csrf", null, null, false));
@@ -821,6 +825,60 @@ class UnifiedFrontendLiveTest {
   @Test
   @EnabledIfEnvironmentVariable(named = "WAUTECH_BROWSER_SMOKE", matches = "true")
   void browserAcceptanceBridge() throws Exception {
+    UUID reportCompany = UUID.randomUUID();
+    jdbc.update(
+        "insert into crm.company(id,organization_id,name,status,created_at,updated_at,archived)"
+            + " values(?,?,'Browser report company','ACTIVE',now(),now(),false)",
+        reportCompany,
+        organization);
+    jdbc.update(
+        "insert into crm.company(id,organization_id,name,status,created_at,updated_at,archived)"
+            + " select gen_random_uuid(),?,'Browser report company '||g,'ACTIVE',now(),now(),false"
+            + " from generate_series(1,5100) g",
+        organization);
+    jdbc.update(
+        "insert into"
+            + " crm.contact(id,organization_id,company_id,first_name,last_name,created_at,updated_at,archived)"
+            + " values(gen_random_uuid(),?,?,'Browser','Contact',now(),now(),false)",
+        organization,
+        reportCompany);
+    jdbc.update(
+        "insert into"
+            + " crm.lead(id,organization_id,company_id,first_name,last_name,status,created_at,updated_at,archived)"
+            + " values(gen_random_uuid(),?,?,'Browser','Lead','QUALIFIED','2026-01-31T23:59:59Z',now(),false)",
+        organization,
+        reportCompany);
+    jdbc.update(
+        "insert into"
+            + " crm.opportunity(id,organization_id,company_id,name,stage,amount,currency,owner_user_id,created_at,updated_at,archived)"
+            + " values(gen_random_uuid(),?,?,'Browser USD"
+            + " deal','QUALIFICATION',999999999999999.1234,'USD',?,'2026-01-31T23:59:59Z',now(),false)",
+        organization,
+        reportCompany,
+        user);
+    jdbc.update(
+        "insert into"
+            + " crm.opportunity(id,organization_id,company_id,name,stage,amount,currency,owner_user_id,created_at,updated_at,archived)"
+            + " values(gen_random_uuid(),?,?,'Browser EUR"
+            + " deal','NEEDS_ANALYSIS',1250,'EUR',?,'2026-01-31T23:59:59Z',now(),false)",
+        organization,
+        reportCompany,
+        user);
+    jdbc.update(
+        "insert into"
+            + " crm.task(id,organization_id,company_id,title,status,priority,due_at,assignee_user_id,created_at,updated_at,archived)"
+            + " values(gen_random_uuid(),?,?,'Browser overdue task','OPEN','HIGH',now()-interval '1"
+            + " day',?,now(),now(),false)",
+        organization,
+        reportCompany,
+        user);
+    jdbc.update(
+        "insert into"
+            + " crm.activity(id,organization_id,company_id,type,subject,occurred_at,created_at,updated_at,archived)"
+            + " values(gen_random_uuid(),?,?,'CALL','Browser recent"
+            + " activity',now(),now(),now(),false)",
+        organization,
+        reportCompany);
     UUID viewerOrganization = UUID.randomUUID();
     jdbc.update(
         "insert into crm.organization(id,name,created_at,updated_at,archived)"
@@ -956,5 +1014,138 @@ class UnifiedFrontendLiveTest {
                 organization,
                 true)
             .statusCode());
+  }
+
+  @Test
+  void reportingAggregatesLargeDatasetsExactCurrenciesDatesAndTenantSafeExports() throws Exception {
+    login(email);
+    UUID company = UUID.randomUUID();
+    jdbc.update(
+        "insert into crm.company(id,organization_id,name,status,created_at,updated_at,archived)"
+            + " values(?,?,?, 'ACTIVE',now(),now(),false)",
+        company,
+        organization,
+        "Report company");
+    jdbc.update(
+        "insert into crm.company(id,organization_id,name,status,created_at,updated_at,archived)"
+            + " select gen_random_uuid(),?,'Large fixture '||g,'ACTIVE',now(),now(),false from"
+            + " generate_series(1,5100) g",
+        organization);
+    jdbc.update(
+        "insert into crm.company(id,organization_id,name,status,created_at,updated_at,archived)"
+            + " values(gen_random_uuid(),?,'Foreign report company','ACTIVE',now(),now(),false)",
+        second);
+    for (String currency : List.of("USD", "EUR"))
+      jdbc.update(
+          "insert into"
+              + " crm.opportunity(id,organization_id,company_id,name,stage,amount,currency,created_at,updated_at,archived)"
+              + " values(gen_random_uuid(),?,?,'Report"
+              + " deal','QUALIFICATION',999999999999999.1234,?,"
+              + " '2026-01-31T23:59:59Z','2026-01-31T23:59:59Z',false)",
+          organization,
+          company,
+          currency);
+    jdbc.update(
+        "update crm.opportunity set owner_user_id=? where organization_id=?", user, organization);
+    jdbc.update(
+        "insert into"
+            + " crm.task(id,organization_id,company_id,title,status,priority,completed_at,created_at,updated_at,archived,assignee_user_id)"
+            + " values(gen_random_uuid(),?,?,'Report completed"
+            + " task','COMPLETED','NORMAL','2026-02-01T00:00:00Z','2026-01-01T00:00:00Z',now(),false,?)",
+        organization,
+        company,
+        user);
+    jdbc.update(
+        "insert into"
+            + " crm.activity(id,organization_id,company_id,type,subject,occurred_at,created_at,updated_at,archived)"
+            + " values(gen_random_uuid(),?,?,'CALL','Boundary"
+            + " activity','2026-01-31T23:59:59Z','2026-02-01T00:00:00Z',now(),false)",
+        organization,
+        company);
+    var february =
+        json(
+            request(
+                "GET",
+                "/reports/summary?from=2026-02-01&through=2026-02-28",
+                null,
+                organization,
+                false));
+    assertEquals(0, february.path("counts").path("task").asInt());
+    assertEquals(1, february.path("completedInPeriod").asInt());
+    assertEquals(0, february.path("counts").path("activity").asInt());
+    assertEquals(
+        0,
+        json(request("GET", "/reports/summary?search=%25", null, organization, false))
+            .path("counts")
+            .path("opportunity")
+            .asInt());
+    assertEquals(
+        2,
+        json(request("GET", "/reports/summary?memberId=" + user, null, organization, false))
+            .path("counts")
+            .path("opportunity")
+            .asInt());
+    assertEquals(
+        0,
+        json(request("GET", "/reports/summary?memberId=" + viewer, null, organization, false))
+            .path("counts")
+            .path("opportunity")
+            .asInt());
+    assertEquals(
+        1,
+        json(request("GET", "/reports/summary", null, second, false))
+            .path("counts")
+            .path("company")
+            .asInt());
+    assertEquals(
+        1,
+        json(request("GET", "/records/opportunities?currency=USD", null, organization, false))
+            .path("totalElements")
+            .asInt());
+    var all = request("GET", "/reports/summary", null, organization, false);
+    assertEquals(200, all.statusCode());
+    var report = json(all);
+    assertEquals(5101, report.path("counts").path("company").asInt());
+    assertEquals(2, report.path("counts").path("opportunity").asInt());
+    assertEquals(2, report.path("pipelineStages").size());
+    assertEquals(
+        "999999999999999.1234", report.path("pipelineStages").get(0).path("amount").asText());
+    var january =
+        json(
+            request(
+                "GET",
+                "/reports/summary?from=2026-01-01&through=2026-01-31",
+                null,
+                organization,
+                false));
+    assertEquals(2, january.path("counts").path("opportunity").asInt());
+    assertEquals(
+        0,
+        json(request("GET", "/reports/summary?from=2026-02-01", null, organization, false))
+            .path("counts")
+            .path("opportunity")
+            .asInt());
+    assertEquals(
+        400,
+        request(
+                "GET",
+                "/reports/summary?from=2026-02-01&through=2026-01-01",
+                null,
+                organization,
+                false)
+            .statusCode());
+    assertEquals(
+        400,
+        request("GET", "/reports/summary?currency=USD%27", null, organization, false).statusCode());
+    assertEquals(
+        403, request("GET", "/reports/summary", null, UUID.randomUUID(), false).statusCode());
+    login(viewerEmail);
+    assertEquals(200, request("GET", "/reports/summary", null, organization, false).statusCode());
+    var export = request("GET", "/reports/export", null, organization, false);
+    assertEquals(200, export.statusCode());
+    assertTrue(export.body().contains("999999999999999.1234"));
+    assertTrue(export.body().contains("USD"));
+    assertTrue(export.body().contains("EUR"));
+    assertFalse(export.body().contains("Foreign report company"));
   }
 }
