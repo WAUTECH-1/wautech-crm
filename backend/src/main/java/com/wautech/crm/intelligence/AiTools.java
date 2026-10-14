@@ -18,10 +18,16 @@ import org.springframework.transaction.annotation.Transactional;
     readOnly = true,
     isolation = org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
 public class AiTools {
-  public record Selection(String scope, String stage, String resource, UUID recordId) {
+  public record Selection(
+      String scope, String stage, String resource, UUID recordId, Boolean shareBusinessContext) {
+    public Selection(String scope, String stage, String resource, UUID recordId) {
+      this(scope, stage, resource, recordId, false);
+    }
+
     public void validate() {
       if (scope == null
-          || !List.of("briefing", "leads", "opportunities", "tasks", "activities", "record")
+          || !List.of(
+                  "briefing", "leads", "opportunities", "tasks", "activities", "record", "advisor")
               .contains(scope))
         throw new AiFailure(HttpStatus.BAD_REQUEST, "Choose a supported CRM context.");
       if (stage != null
@@ -53,12 +59,17 @@ public class AiTools {
   public record Evidence(
       Instant asOf, List<Source> sources, List<String> rules, List<String> boundaries) {}
 
+  private final com.wautech.crm.business.BusinessContextReader businessReader;
   private final ReportingService reports;
   private final NamedParameterJdbcTemplate jdbc;
   private final CrmAuthorization authorization;
 
   public AiTools(
-      ReportingService reports, NamedParameterJdbcTemplate jdbc, CrmAuthorization authorization) {
+      ReportingService reports,
+      NamedParameterJdbcTemplate jdbc,
+      CrmAuthorization authorization,
+      com.wautech.crm.business.BusinessContextReader businessReader) {
+    this.businessReader = businessReader;
     this.reports = reports;
     this.jdbc = jdbc;
     this.authorization = authorization;
@@ -89,7 +100,23 @@ public class AiTools {
     facts.put("overdueTasks", snapshot.overdueTasks());
     var sources = new ArrayList<Source>();
     sources.add(new Source("summary", "Verified current CRM summary", "/reports", facts));
-    if (selection.scope().equals("record")) {
+    if (selection.scope().equals("advisor")) {
+      if (!Boolean.TRUE.equals(selection.shareBusinessContext()))
+        throw new AiFailure(
+            HttpStatus.BAD_REQUEST,
+            "Review and explicitly allow business context sharing for this question.");
+      try {
+        var business = businessReader.advisory(org);
+        sources.add(
+            new Source(
+                "business-context",
+                "Your provided business context",
+                "/business-profile",
+                business));
+      } catch (com.wautech.crm.business.BusinessFailure e) {
+        throw new AiFailure(e.status, e.getMessage());
+      }
+    } else if (selection.scope().equals("record")) {
       addRows(sources, org, selection.resource(), null, selection.recordId());
       if (sources.size() == 1)
         throw new AiFailure(HttpStatus.NOT_FOUND, "Record unavailable in this organization.");

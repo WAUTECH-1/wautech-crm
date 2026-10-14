@@ -1357,4 +1357,358 @@ class UnifiedFrontendLiveTest {
             "select used from crm.ai_budget where budget_key=?", Long.class, globalDay));
     assertEquals(27000, before);
   }
+
+  Map<String, Object> businessPreferences(long version, boolean advisor) {
+    return new HashMap<>(
+        Map.of(
+            "version",
+            version,
+            "journey",
+            "EMPLOYEE",
+            "userRole",
+            "Employee",
+            "challenge",
+            "Prioritize current work",
+            "shortTermGoal",
+            "Plan this week",
+            "desiredOutcome",
+            "A reviewable plan",
+            "planningStyle",
+            "WEEKLY",
+            "progress",
+            "COMPLETE",
+            "storageConsent",
+            true,
+            "advisorConsent",
+            advisor));
+  }
+
+  @Test
+  void businessProfilesAndPrivateOnboardingEnforceConsentRolesCorrectionAndDeletion()
+      throws Exception {
+    assertEquals(401, request("GET", "/business/profile", null, organization, false).statusCode());
+    login(viewerEmail);
+    var preferences = businessPreferences(0, false);
+    preferences.put("userRole", "OWNER");
+    assertEquals(
+        403,
+        request("PUT", "/business/preferences", preferences, organization, false).statusCode());
+    var saved = request("PUT", "/business/preferences", preferences, organization, true);
+    assertEquals(200, saved.statusCode(), saved.body());
+    assertEquals("OWNER", json(saved).path("data").path("userRole").asText());
+    assertEquals(
+        "VIEWER",
+        jdbc.queryForObject(
+            "select role from crm.organization_membership where organization_id=? and user_id=?",
+            String.class,
+            organization,
+            viewer));
+    var profile =
+        new HashMap<String, Object>(
+            Map.of(
+                "version",
+                0,
+                "businessName",
+                "Disposable business",
+                "industry",
+                "Services",
+                "website",
+                "https://example.test/about",
+                "storageConsent",
+                true));
+    assertEquals(
+        403, request("PUT", "/business/profile", profile, organization, true).statusCode());
+    assertEquals(
+        403,
+        request(
+                "POST",
+                "/business/goals",
+                Map.of(
+                    "version", 0, "title", "Denied", "status", "ACTIVE", "milestones", List.of()),
+                organization,
+                true)
+            .statusCode());
+    login(email);
+    assertTrue(
+        json(request("GET", "/business/preferences", null, organization, false))
+            .path("data")
+            .isNull());
+    assertEquals(
+        200, request("PUT", "/business/profile", profile, organization, true).statusCode());
+    assertEquals(
+        409, request("PUT", "/business/profile", profile, organization, true).statusCode());
+    var history = json(request("GET", "/intelligence/conversation", null, organization, false));
+    profile.put("version", 1);
+    profile.put("website", "https://example.test?private=token");
+    assertEquals(
+        400, request("PUT", "/business/profile", profile, organization, true).statusCode());
+    profile.put("website", "https://example.test");
+    profile.put("businessName", "Corrected business");
+    assertEquals(
+        200, request("PUT", "/business/profile", profile, organization, true).statusCode());
+    assertNotEquals(
+        history.path("conversationId").asText(),
+        json(request("GET", "/intelligence/conversation", null, organization, false))
+            .path("conversationId")
+            .asText());
+    assertTrue(
+        json(request("GET", "/business/profile", null, second, false)).path("data").isNull());
+    assertEquals(403, request("GET", "/business/profile", null, inactive, false).statusCode());
+    assertEquals(
+        204,
+        request("DELETE", "/business/profile?version=2", null, organization, true).statusCode());
+    assertTrue(
+        json(request("GET", "/business/profile", null, organization, false)).path("data").isNull());
+    login(viewerEmail);
+    assertEquals(
+        204,
+        request("DELETE", "/business/preferences?version=1", null, organization, true)
+            .statusCode());
+    assertTrue(
+        json(request("GET", "/business/preferences", null, organization, false))
+            .path("data")
+            .isNull());
+  }
+
+  @Test
+  void goalsMilestonesAndOperationalTasksRequireScopedServerPreviewAndConfirmation()
+      throws Exception {
+    login(email);
+    UUID company =
+        UUID.fromString(
+            json(request(
+                    "POST",
+                    "/companies",
+                    Map.of("name", "Goal fixture company"),
+                    organization,
+                    true))
+                .path("id")
+                .asText());
+    var input =
+        new HashMap<String, Object>(
+            Map.of(
+                "version",
+                0,
+                "title",
+                "Reviewable fixture goal",
+                "status",
+                "ACTIVE",
+                "milestones",
+                List.of(Map.of("title", "Follow up with company", "completed", false))));
+    var result = request("POST", "/business/goals", input, organization, true);
+    assertEquals(200, result.statusCode(), result.body());
+    var created = json(result);
+    String goal = created.path("id").asText(),
+        milestone = created.path("milestones").get(0).path("id").asText();
+    var page = request("GET", "/business/goals", null, organization, false);
+    assertEquals(200, page.statusCode(), page.body());
+    assertEquals(1, json(page).path("totalElements").asLong());
+    assertEquals(
+        0,
+        json(request("GET", "/business/goals?search=%25", null, organization, false))
+            .path("totalElements")
+            .asLong());
+    assertEquals(404, request("GET", "/business/goals/" + goal, null, second, false).statusCode());
+    var task =
+        new HashMap<String, Object>(
+            Map.of(
+                "companyId", company.toString(), "title", "Reviewed task", "priority", "NORMAL"));
+    var draft = Map.of("version", 1, "request", task);
+    String previewPath = "/business/goals/" + goal + "/milestones/" + milestone + "/task-preview";
+    assertEquals(403, request("POST", previewPath, draft, organization, false).statusCode());
+    var preview = request("POST", previewPath, draft, organization, true);
+    assertEquals(200, preview.statusCode(), preview.body());
+    assertEquals(
+        0,
+        jdbc.queryForObject(
+            "select count(*) from crm.task where organization_id=?", Integer.class, organization));
+    String token = json(preview).path("token").asText();
+    assertEquals(
+        409,
+        request("POST", "/business/task-confirmation", Map.of("token", token), second, true)
+            .statusCode());
+    var confirmed =
+        request("POST", "/business/task-confirmation", Map.of("token", token), organization, true);
+    assertEquals(200, confirmed.statusCode(), confirmed.body());
+    String taskId = json(confirmed).path("id").asText();
+    assertEquals(
+        409,
+        request("POST", "/business/task-confirmation", Map.of("token", token), organization, true)
+            .statusCode());
+    assertEquals(
+        1,
+        jdbc.queryForObject(
+            "select count(*) from crm.task where organization_id=?", Integer.class, organization));
+    var current = json(request("GET", "/business/goals/" + goal, null, organization, false));
+    assertEquals(taskId, current.path("milestones").get(0).path("taskId").asText());
+    assertEquals(
+        409, request("PUT", "/business/goals/" + goal, input, organization, true).statusCode());
+    input.put("version", 2);
+    input.put("status", "COMPLETED");
+    input.put(
+        "milestones",
+        List.of(
+            Map.of(
+                "id",
+                milestone,
+                "title",
+                "Follow up with company",
+                "completed",
+                false,
+                "taskId",
+                taskId)));
+    assertEquals(
+        400, request("PUT", "/business/goals/" + goal, input, organization, true).statusCode());
+    input.put(
+        "milestones",
+        List.of(
+            Map.of(
+                "id",
+                milestone,
+                "title",
+                "Follow up with company",
+                "completed",
+                true,
+                "taskId",
+                taskId)));
+    assertEquals(
+        200, request("PUT", "/business/goals/" + goal, input, organization, true).statusCode());
+    assertEquals(
+        "OPEN",
+        json(request("GET", "/tasks/" + taskId, null, organization, false))
+            .path("status")
+            .asText());
+    assertEquals(204, request("DELETE", "/tasks/" + taskId, null, organization, true).statusCode());
+    input.put("version", 3);
+    input.put("status", "ACTIVE");
+    assertEquals(
+        200, request("PUT", "/business/goals/" + goal, input, organization, true).statusCode());
+    assertEquals(
+        204,
+        request("DELETE", "/business/goals/" + goal + "?version=4", null, organization, true)
+            .statusCode());
+    assertEquals(
+        404, request("GET", "/business/goals/" + goal, null, organization, false).statusCode());
+    assertEquals(
+        1,
+        jdbc.queryForObject(
+            "select count(*) from crm.task where id=?", Integer.class, UUID.fromString(taskId)));
+    assertEquals(
+        0,
+        jdbc.queryForObject(
+            "select count(*) from crm.business_milestone where goal_id=?",
+            Integer.class,
+            UUID.fromString(goal)));
+  }
+
+  @Test
+  void advisorRequiresStoredAndPerQuestionConsentAndHandlesOutageWithoutFabrication()
+      throws Exception {
+    login(email);
+    assertEquals(
+        200,
+        request(
+                "PUT",
+                "/business/profile",
+                Map.of("version", 0, "storageConsent", true, "advisorSharingAllowed", true),
+                organization,
+                true)
+            .statusCode());
+    var prefs = businessPreferences(0, false);
+    assertEquals(
+        200, request("PUT", "/business/preferences", prefs, organization, true).statusCode());
+    var h = json(request("GET", "/intelligence/conversation", null, organization, false));
+    var body =
+        new HashMap<String, Object>(
+            Map.of(
+                "conversationId",
+                h.path("conversationId").asText(),
+                "question",
+                "Help me plan my week respectfully",
+                "selection",
+                Map.of("scope", "advisor", "shareBusinessContext", true)));
+    assertEquals(
+        400, request("POST", "/intelligence/messages", body, organization, true).statusCode());
+    org.mockito.Mockito.verifyNoInteractions(aiProvider);
+    prefs.put("version", 1);
+    prefs.put("advisorConsent", true);
+    assertEquals(
+        200, request("PUT", "/business/preferences", prefs, organization, true).statusCode());
+    body.put(
+        "conversationId",
+        json(request("GET", "/intelligence/conversation", null, organization, false))
+            .path("conversationId")
+            .asText());
+    body.put("selection", Map.of("scope", "advisor", "shareBusinessContext", false));
+    assertEquals(
+        400, request("POST", "/intelligence/messages", body, organization, true).statusCode());
+    jdbc.update(
+        "insert into"
+            + " crm.business_preferences(organization_id,user_id,data,version,updated_at,consented_at)"
+            + " values(?,?,cast(? as jsonb),1,now(),now())",
+        organization,
+        viewer,
+        "{\"challenge\":\"Viewer private context must not leak\",\"advisorConsent\":true}");
+    org.mockito.Mockito.when(
+            aiProvider.answer(
+                org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.anyList()))
+        .thenReturn(
+            new com.wautech.crm.intelligence.AiProvider.Result(
+                List.of(
+                    new com.wautech.crm.intelligence.AiProvider.Recommendation(
+                        "Consider reviewing one small weekly milestone; validate the assumption.",
+                        List.of("business-context"))),
+                "Mock provider only; not live advisory verification",
+                100,
+                40));
+    body.put("selection", Map.of("scope", "advisor", "shareBusinessContext", true));
+    var answer = request("POST", "/intelligence/messages", body, organization, true);
+    assertEquals(200, answer.statusCode(), answer.body());
+    assertFalse(answer.body().contains("Viewer private context"));
+    assertTrue(answer.body().contains("USER_PROVIDED_NOT_INDEPENDENTLY_VERIFIED"));
+    var evidence = org.mockito.ArgumentCaptor.forClass(String.class);
+    org.mockito.Mockito.verify(aiProvider)
+        .answer(
+            org.mockito.ArgumentMatchers.anyString(),
+            evidence.capture(),
+            org.mockito.ArgumentMatchers.anyList());
+    assertFalse(evidence.getValue().contains("Viewer private context"));
+    assertTrue(evidence.getValue().contains("Plan this week"));
+    org.mockito.Mockito.when(
+            aiProvider.answer(
+                org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.anyList()))
+        .thenThrow(
+            new com.wautech.crm.intelligence.AiFailure(
+                org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE, "Provider unavailable"));
+    assertEquals(
+        503, request("POST", "/intelligence/messages", body, organization, true).statusCode());
+    assertEquals(
+        1,
+        json(request("GET", "/intelligence/conversation", null, organization, false))
+            .path("turns")
+            .size());
+    prefs.put("version", 2);
+    prefs.put("advisorConsent", false);
+    assertEquals(
+        200, request("PUT", "/business/preferences", prefs, organization, true).statusCode());
+    assertTrue(
+        json(request("GET", "/intelligence/conversation", null, organization, false))
+            .path("turns")
+            .isEmpty());
+    assertEquals(
+        204,
+        request("DELETE", "/business/preferences?version=3", null, organization, true)
+            .statusCode());
+    assertEquals(
+        0,
+        jdbc.queryForObject(
+            "select count(*) from crm.business_preferences where organization_id=? and user_id=?",
+            Integer.class,
+            organization,
+            user));
+  }
 }

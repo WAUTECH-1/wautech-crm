@@ -1,0 +1,53 @@
+CREATE TABLE crm.business_profile (
+ organization_id UUID PRIMARY KEY REFERENCES crm.organization(id),
+ data JSONB NOT NULL CHECK (jsonb_typeof(data)='object'),
+ version BIGINT NOT NULL CHECK(version>0),
+ updated_at TIMESTAMPTZ NOT NULL,
+ consented_at TIMESTAMPTZ NOT NULL
+);
+CREATE TABLE crm.business_preferences (
+ organization_id UUID NOT NULL REFERENCES crm.organization(id),
+ user_id UUID NOT NULL REFERENCES crm.user_account(id),
+ data JSONB NOT NULL CHECK(jsonb_typeof(data)='object'),
+ version BIGINT NOT NULL CHECK(version>0),
+ updated_at TIMESTAMPTZ NOT NULL,
+ consented_at TIMESTAMPTZ NOT NULL,
+ PRIMARY KEY(organization_id,user_id),
+ FOREIGN KEY(organization_id,user_id) REFERENCES crm.organization_membership(organization_id,user_id)
+);
+CREATE TABLE crm.business_goal (
+ id UUID PRIMARY KEY, organization_id UUID NOT NULL REFERENCES crm.organization(id),
+ title VARCHAR(200) NOT NULL, description VARCHAR(2000), due_date DATE,
+ status VARCHAR(20) NOT NULL CHECK(status IN ('ACTIVE','COMPLETED','CANCELLED')),
+ version BIGINT NOT NULL CHECK(version>0), created_by UUID NOT NULL,
+ created_at TIMESTAMPTZ NOT NULL, updated_at TIMESTAMPTZ NOT NULL,
+ UNIQUE(organization_id,id),
+ FOREIGN KEY(organization_id,created_by) REFERENCES crm.organization_membership(organization_id,user_id)
+);
+CREATE TABLE crm.business_milestone (
+ id UUID PRIMARY KEY, organization_id UUID NOT NULL,
+ goal_id UUID NOT NULL, title VARCHAR(200) NOT NULL, due_date DATE,
+ completed BOOLEAN NOT NULL DEFAULT FALSE, task_id UUID, position INT NOT NULL,
+ FOREIGN KEY(organization_id,goal_id) REFERENCES crm.business_goal(organization_id,id) ON DELETE CASCADE,
+ FOREIGN KEY(organization_id,task_id) REFERENCES crm.task(organization_id,id),
+ UNIQUE(goal_id,position)
+);
+CREATE INDEX idx_business_goal_org_updated ON crm.business_goal(organization_id,updated_at DESC,id);
+CREATE INDEX idx_business_milestone_goal ON crm.business_milestone(organization_id,goal_id,position);
+ALTER TABLE crm.audit_event DROP CONSTRAINT audit_event_event_type_check;
+ALTER TABLE crm.audit_event ADD CONSTRAINT audit_event_event_type_check CHECK(event_type IN (
+ 'COMPANY_CREATED','COMPANY_UPDATED','COMPANY_ARCHIVED','CONTACT_CREATED','CONTACT_UPDATED','CONTACT_ARCHIVED',
+ 'LEAD_CREATED','LEAD_UPDATED','LEAD_STATUS_CHANGED','LEAD_ARCHIVED','OPPORTUNITY_CREATED','OPPORTUNITY_UPDATED','OPPORTUNITY_STAGE_CHANGED','OPPORTUNITY_ARCHIVED',
+ 'ACTIVITY_CREATED','ACTIVITY_UPDATED','ACTIVITY_ARCHIVED','TASK_CREATED','TASK_UPDATED','TASK_STATUS_CHANGED','TASK_ARCHIVED',
+ 'NOTE_CREATED','NOTE_UPDATED','NOTE_ARCHIVED','SAVED_VIEW_CREATED','SAVED_VIEW_UPDATED','SAVED_VIEW_ARCHIVED',
+ 'ORGANIZATION_CREATED','ORGANIZATION_UPDATED','ORGANIZATION_ARCHIVED','MEMBERSHIP_CREATED','MEMBERSHIP_STATUS_CHANGED','MEMBERSHIP_ROLE_CHANGED',
+ 'ORGANIZATION_OWNERSHIP_TRANSFERRED','USER_ACTIVATION_CHANGED','USER_PROFILE_UPDATED','LOGIN_SUCCEEDED','LOGIN_FAILED','LOGOUT_SUCCEEDED','ACCESS_DENIED',
+ 'DATA_IMPORT_PREVIEWED','DATA_IMPORT_SUCCEEDED','DATA_IMPORT_FAILED','DATA_EXPORT_SUCCEEDED','DATA_EXPORT_FAILED','PIPELINE_CREATED','PIPELINE_UPDATED','PIPELINE_ARCHIVED',
+ 'BUSINESS_PROFILE_UPDATED','BUSINESS_PROFILE_CLEARED','BUSINESS_PREFERENCES_UPDATED','BUSINESS_PREFERENCES_CLEARED',
+ 'BUSINESS_GOAL_CREATED','BUSINESS_GOAL_UPDATED','BUSINESS_GOAL_DELETED'
+));
+ALTER TABLE crm.audit_event DROP CONSTRAINT audit_event_target_type_check;
+ALTER TABLE crm.audit_event ADD CONSTRAINT audit_event_target_type_check CHECK(target_type IN (
+ 'COMPANY','CONTACT','LEAD','OPPORTUNITY','ACTIVITY','TASK','NOTE','SAVED_VIEW','ORGANIZATION','ORGANIZATION_MEMBERSHIP','USER','API_REQUEST','DATA_TRANSFER','PIPELINE','BUSINESS_GOAL'
+));
+
