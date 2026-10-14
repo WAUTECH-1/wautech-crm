@@ -862,4 +862,99 @@ class UnifiedFrontendLiveTest {
       java.nio.file.Files.deleteIfExists(directory.resolve("wautech-phase2-import.csv"));
     }
   }
+
+  /** Explicitly approved: only random users in exact-gated disposable fixture DB. */
+  @Test
+  void ownershipTransferIsOwnerOnlyAtomicAndTenantScoped() throws Exception {
+    login(email);
+    UUID target =
+        jdbc.queryForObject(
+            "select id from crm.organization_membership where organization_id=? and user_id=?",
+            UUID.class,
+            organization,
+            viewer);
+    UUID actor =
+        jdbc.queryForObject(
+            "select id from crm.organization_membership where organization_id=? and user_id=?",
+            UUID.class,
+            organization,
+            user);
+    assertEquals(
+        403,
+        request(
+                "POST",
+                "/organization/ownership-transfer",
+                Map.of("targetMembershipId", target),
+                organization,
+                true)
+            .statusCode());
+    jdbc.update(
+        "update crm.organization_membership set role='OWNER' where organization_id=? and user_id=?",
+        organization,
+        user);
+    assertEquals(
+        404,
+        request(
+                "POST",
+                "/organization/ownership-transfer",
+                Map.of("targetMembershipId", UUID.randomUUID()),
+                organization,
+                true)
+            .statusCode());
+    assertEquals(
+        403,
+        request(
+                "POST",
+                "/organization/ownership-transfer",
+                Map.of("targetMembershipId", actor),
+                organization,
+                true)
+            .statusCode());
+    jdbc.update("update crm.organization_membership set status='SUSPENDED' where id=?", target);
+    assertEquals(
+        403,
+        request(
+                "POST",
+                "/organization/ownership-transfer",
+                Map.of("targetMembershipId", target),
+                organization,
+                true)
+            .statusCode());
+    jdbc.update("update crm.organization_membership set status='ACTIVE' where id=?", target);
+    assertEquals(
+        403,
+        request(
+                "POST",
+                "/organization/ownership-transfer",
+                Map.of("targetMembershipId", target),
+                organization,
+                false)
+            .statusCode());
+    assertEquals(
+        200,
+        request(
+                "POST",
+                "/organization/ownership-transfer",
+                Map.of("targetMembershipId", target),
+                organization,
+                true)
+            .statusCode());
+    assertEquals(
+        "OWNER",
+        jdbc.queryForObject(
+            "select role from crm.organization_membership where id=?", String.class, target));
+    assertEquals(
+        "ADMIN",
+        jdbc.queryForObject(
+            "select role from crm.organization_membership where id=?", String.class, actor));
+    assertEquals(
+        403,
+        request(
+                "POST",
+                "/organization/ownership-transfer",
+                Map.of("targetMembershipId", target),
+                organization,
+                true)
+            .statusCode());
+  }
 }
